@@ -281,6 +281,39 @@ class PromotionGateTests(unittest.TestCase):
                     self.assertFalse(output.exists())
 
 
+    def admit(self, family: str, source: str, destination: str) -> tuple[subprocess.CompletedProcess[str], Path]:
+        output = self.root / f"admission-{family}.json"
+        if output.exists():
+            output.unlink()
+        result = self.run_gate("admission-receipt", "--image-family", family,
+            "--digest", DIGEST, "--source-repository", source, "--destination-repository", destination,
+            "--tag", "promoted-r1-a1", "--source-commit", COMMIT,
+            "--course-receipt-path", "deploy/.../staging-receipt.json",
+            "--workflow-commit", "c" * 40, "--run-id", "1", "--attempt", "1", "--output", str(output))
+        return result, output
+
+    def test_course_org_source_is_admitted_after_the_repository_moved_to_ubc(self):
+        # CodingWorkspace now publishes under ubc with a course- prefix; admission still copies to
+        # the admitted ghcr.io/ubc/codingworkspace-<family> repository.
+        for family in ("central", "git", "group-app"):
+            with self.subTest(family=family):
+                result, output = self.admit(family, "ghcr.io/ubc/codingworkspace-course-" + family,
+                                            "ghcr.io/ubc/codingworkspace-" + family)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                body = json.loads(output.read_text())
+                self.assertEqual(body["sourceImage"], f"ghcr.io/ubc/codingworkspace-course-{family}@{DIGEST}")
+                self.assertEqual(body["promotedImage"], f"ghcr.io/ubc/codingworkspace-{family}@{DIGEST}")
+
+    def test_admitted_image_cannot_be_its_own_source_and_other_sources_are_refused(self):
+        for source in ("ghcr.io/ubc/codingworkspace-central",          # the admitted image itself
+                       "ghcr.io/ubc/codingworkspace-course-git",       # course prefix, wrong family
+                       "ghcr.io/someone/codingworkspace-central",      # foreign owner
+                       "ghcr.io/kevinlb1/codingworkspace-course-central"):  # prefix under the old owner
+            with self.subTest(source=source):
+                result, output = self.admit("central", source, "ghcr.io/ubc/codingworkspace-central")
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertFalse(output.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

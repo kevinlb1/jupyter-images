@@ -152,8 +152,15 @@ def write_admission_receipt(arguments: argparse.Namespace) -> None:
              "git": "CodingWorkspaceGitAdmissionReceipt",
              "group-app": "CodingWorkspaceGroupAppAdmissionReceipt"}
     require(family in kinds, "unsupported image family")
-    require(arguments.source_repository == "ghcr.io/kevinlb1/codingworkspace-" + family,
+    # The course publishes under its original owner or, after CodingWorkspace moved to the ubc
+    # org, under a course- prefix. Never the admitted destination itself: admission must copy
+    # between two distinct repositories, or a course build could stand in for an admitted image.
+    allowed_sources = {"ghcr.io/kevinlb1/codingworkspace-" + family,
+                       "ghcr.io/ubc/codingworkspace-course-" + family}
+    require(arguments.source_repository in allowed_sources,
             "source repository differs from selected image family")
+    require(arguments.source_repository != arguments.destination_repository,
+            "source and destination repositories must differ")
     require(arguments.destination_repository == "ghcr.io/ubc/codingworkspace-" + family,
             "destination repository differs from selected image family")
     receipt = {

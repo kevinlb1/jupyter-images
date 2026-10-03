@@ -37,6 +37,16 @@ on:
         type: choice
         options: [central, git, group-app]
         default: central
+      source_namespace:
+        description: >-
+          Where the course published this digest. legacy = ghcr.io/kevinlb1/codingworkspace-<family>
+          (built while CodingWorkspace lived under kevinlb1); course-org =
+          ghcr.io/ubc/codingworkspace-course-<family> (built after the move to the ubc org). The
+          source label the image must carry switches with it.
+        required: false
+        type: choice
+        options: [legacy, course-org]
+        default: legacy
       digest:
         description: Index digest to promote, exactly as the course receipt records it (sha256:...)
         required: true
@@ -84,8 +94,11 @@ jobs:
     env:
       IMAGE_FAMILY: ${{ inputs.image_family || 'central' }}
       EXPECTED_USER: ${{ inputs.image_family == 'group-app' && '10008:10008' || '10001:10001' }}
-      SOURCE_REPOSITORY: ghcr.io/kevinlb1/codingworkspace-${{ inputs.image_family || 'central' }}
-      SOURCE_URL: https://github.com/kevinlb1/CodingWorkspace
+      # Registry path and expected OCI source label switch together: images built after the
+      # repository moved to ubc carry https://github.com/ubc/CodingWorkspace as their source.
+      # The course-org prefix keeps course builds distinct from the admitted destination below.
+      SOURCE_REPOSITORY: ${{ inputs.source_namespace == 'course-org' && format('ghcr.io/ubc/codingworkspace-course-{0}', inputs.image_family || 'central') || format('ghcr.io/kevinlb1/codingworkspace-{0}', inputs.image_family || 'central') }}
+      SOURCE_URL: ${{ inputs.source_namespace == 'course-org' && 'https://github.com/ubc/CodingWorkspace' || 'https://github.com/kevinlb1/CodingWorkspace' }}
       DESTINATION_REPOSITORY: ghcr.io/ubc/codingworkspace-${{ inputs.image_family || 'central' }}
       DESTINATION_ORG: ubc
       DESTINATION_PACKAGE: codingworkspace-${{ inputs.image_family || 'central' }}
