@@ -42,11 +42,13 @@ on:
           Where the course published this digest. legacy = ghcr.io/kevinlb1/codingworkspace-<family>
           (built while CodingWorkspace lived under kevinlb1); course-org =
           ghcr.io/ubc/codingworkspace-course-<family> (built after the move to the ubc org). The
-          source label the image must carry switches with it.
+          source label the image must carry switches with it. Default course-org since the first
+          course-org admission (runs 37265677544 and 37265851379, 2026-10-05); choose legacy only
+          for a digest the course published under kevinlb1.
         required: false
         type: choice
         options: [legacy, course-org]
-        default: legacy
+        default: course-org
       digest:
         description: Index digest to promote, exactly as the course receipt records it (sha256:...)
         required: true
