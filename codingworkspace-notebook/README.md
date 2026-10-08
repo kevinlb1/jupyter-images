@@ -444,3 +444,27 @@ roles sourced from LTIC configuration, not a student PVC. Changes take effect
 on Stop/Start. No roster is embedded in the image and no Hub-wide admin grant
 is requested. Central staff actions require independent verified identity and
 membership; these pod-local hints are not central authorization proof.
+
+## Versioned installed starter dependencies
+
+New CodingWorkspace sources build `/opt/codingworkspace-installed-dependencies`
+from the verified wheelhouse without downloads. The image records exact input
+hashes, package/Python version identity, successful imports and `pip check`, and
+permanent logical file sizes/counts. The inherited `/opt/conda` interpreter and
+libraries are also root-owned and non-writable by the notebook user.
+
+CodingWorkspace verifies this local image asset once per process/version, then
+creates a tiny real project `.venv/bin` directory with executable entry-point
+shims that run the image Python. Dependencies are not copied to or periodically
+scanned on the student's PVC. Known previous canonical installer hashes qualify
+for the same environment without changing tracked student files; the platform
+runs the sealed installer with the verified Python path and keeps a separate
+project-preparation receipt. Changed requirements or custom installers use a
+normal writable project virtualenv and storage accounting.
+
+The real shim directory preserves rollback compatibility: an older
+CodingWorkspace release sees the entry point even if its image lacks the new
+dependency runtime, removes the unstamped shim safely, and rebuilds an ordinary
+project virtualenv. It does not follow or delete image dependency files.
+Old-source lifecycle fixtures retain the ordinary installer path because they
+do not ship the new builder.

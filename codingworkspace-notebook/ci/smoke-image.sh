@@ -523,6 +523,24 @@ from codingworkspace.bubblewrap import bubblewrap_executable
 settings = load_settings()
 assert settings.auth_mode == "jupyterhub"
 assert settings.isolation_mode == "bubblewrap"
+# Old-source lifecycle fixtures have no installed-runtime module. Candidates
+# with that module must prove the immutable receipt and no per-project copy.
+import importlib.util
+from pathlib import Path
+if importlib.util.find_spec("codingworkspace.immutable_dependencies") is not None:
+    from codingworkspace.immutable_dependencies import configured_runtime, runtime_for
+    runtime = configured_runtime(settings)
+    assert runtime is not None, "candidate image omitted installed dependencies"
+    assert runtime.logical_bytes > 0 and runtime.entries > 0, runtime
+    assert runtime_for(settings, Path(settings.starter_repo_url)) is runtime
+    assert configured_runtime(settings) is runtime
+    assert {
+        "d459e1d0aabe2b684d29c834c9b3fecabece4fe8be8577f97dc2a14c463c0512",
+        "0bfaad2bec5534445ec0a7c19c0d873fdb9e0f7b5eaa6e95f342622548d946db",
+    } <= set(runtime.manifest.get("compatibleInstallScriptSha256", []))
+    assert b"CODINGWORKSPACE_PREINSTALLED_PYTHON" in (runtime.root / "install_checkout.sh").read_bytes()
+    print("Verified versioned installed dependencies:", runtime.manifest["runtimeId"],
+          runtime.logical_bytes, runtime.entries)
 assert bubblewrap_executable(settings) == "/usr/bin/bwrap", settings.bubblewrap_command
 
 # The account menu shows __version__ as 1.0.<serial>. The serial is package

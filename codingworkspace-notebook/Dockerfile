@@ -242,9 +242,31 @@ RUN --mount=type=bind,from=cwsrc,target=/cwsrc \
     python -c 'import importlib.metadata as m; assert m.version("jupyterhub") == "5.5.0"; assert m.version("jupyter-server-proxy") == "4.5.0"; assert m.version("aiohttp") == "3.14.3"; assert m.version("simpervisor") == "1.0.0"; assert m.version("notebook") == "7.6.1"; assert m.version("jupyterlab") == "4.6.2"; assert m.version("pyjwt") == "2.14.0"'; \
     python -I /tmp/verify_installed_source.py installed \
         --source /tmp/cwbuild --package codingworkspace; \
+    if [ -f /tmp/cwbuild/scripts/build_installed_dependencies.py ]; then \
+        cp /tmp/cwbuild/scripts/build_installed_dependencies.py \
+            /tmp/build_installed_dependencies.py; \
+    fi; \
     rm -rf /tmp/cwbuild /tmp/cwrepo; \
     rm -f /tmp/proxy-requirements.txt /tmp/verify_installed_source.py
 USER root
+# The inherited interpreter and standard library must be immutable too. A
+# student UID must never be able to change a shared dependency after its receipt.
+RUN set -eux; \
+    chown -hR root:root /opt/conda; \
+    chmod -R go-w /opt/conda; \
+    if [ -f /tmp/build_installed_dependencies.py ]; then \
+        chown root:root /tmp/build_installed_dependencies.py; \
+        chmod 0444 /tmp/build_installed_dependencies.py; \
+        /opt/conda/bin/python -I -B /tmp/build_installed_dependencies.py \
+            --wheelhouse /opt/codingworkspace-dependency-wheelhouse \
+            --checkout /opt/codingworkspace-starters/GizmoApp \
+            --output-dir /opt/codingworkspace-installed-dependencies \
+            --compatible-install-script-sha256 \
+                d459e1d0aabe2b684d29c834c9b3fecabece4fe8be8577f97dc2a14c463c0512 \
+            --compatible-install-script-sha256 \
+                0bfaad2bec5534445ec0a7c19c0d873fdb9e0f7b5eaa6e95f342622548d946db; \
+        rm -f /tmp/build_installed_dependencies.py; \
+    fi
 LABEL org.codingworkspace.source-revision="${CW_REF}" \
       org.codingworkspace.starter-revision="${GIZMOAPP_REF}" \
       org.codingworkspace.opencode-version="${OPENCODE_VERSION}"
