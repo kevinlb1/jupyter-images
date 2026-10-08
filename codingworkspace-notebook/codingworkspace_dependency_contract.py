@@ -323,6 +323,7 @@ def image_dependency_environment(
     wheelhouse: Path = WHEELHOUSE_PATH,
     contract: Path = WHEELHOUSE_CONTRACT,
     required_uid: int = 0,
+    installed_runtime: Path = Path("/opt/codingworkspace-installed-dependencies"),
 ) -> dict[str, str]:
     """Validate the sealed image artifact and return fixed child settings."""
 
@@ -359,8 +360,24 @@ def image_dependency_environment(
         raise RuntimeError("The configured dependency runtime ID differs from the manifest")
     if values["DEPENDENCY_WHEELHOUSE_MANIFEST_SHA256"] != metadata["manifest_sha256"]:
         raise RuntimeError("The configured dependency manifest hash differs from the artifact")
-    return {
+    environment = {
         "CODINGWORKSPACE_DEPENDENCY_WHEELHOUSE": str(wheelhouse),
         "CODINGWORKSPACE_DEPENDENCY_WHEELHOUSE_MODE": "prefer",
         "CODINGWORKSPACE_DEPENDENCY_RUNTIME_ID": metadata["runtime_id"],
     }
+    if installed_runtime.exists() or installed_runtime.is_symlink():
+        details = installed_runtime.lstat()
+        if (not installed_runtime.is_absolute() or not stat.S_ISDIR(details.st_mode)
+                or details.st_uid != required_uid or stat.S_IMODE(details.st_mode) != 0o555
+                or installed_runtime.resolve(strict=True) != installed_runtime):
+            raise RuntimeError("The baked installed dependencies are unsafe")
+        receipt = json.loads(_read_immutable_file(
+            installed_runtime / "manifest.json", required_uid=required_uid,
+            maximum_bytes=MAX_MANIFEST_BYTES,
+        ))
+        if (not isinstance(receipt, dict)
+                or receipt.get("schema") != "codingworkspace-installed-dependencies/v1"
+                or receipt.get("runtimeId") != metadata["runtime_id"]):
+            raise RuntimeError("Installed dependencies differ from the image wheelhouse version")
+        environment["CODINGWORKSPACE_DEPENDENCY_RUNTIME_PATH"] = str(installed_runtime)
+    return environment

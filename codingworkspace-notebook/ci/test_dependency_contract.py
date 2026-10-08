@@ -124,6 +124,37 @@ class DependencyContractTests(unittest.TestCase):
             dependency_manifest_metadata(self.manifest(), LAYER_VERSION)["runtime_id"],
         )
 
+    def test_installed_dependency_receipt_selects_fixed_runtime_path(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            wheelhouse, contract = self.write_artifact(root, self.manifest())
+            installed = root / "installed"
+            installed.mkdir(mode=0o555)
+            installed.chmod(0o755)
+            receipt = installed / "manifest.json"
+            metadata = dependency_manifest_metadata(self.manifest(), LAYER_VERSION)
+            receipt.write_text(json.dumps({"schema": "codingworkspace-installed-dependencies/v1",
+                                           "runtimeId": metadata["runtime_id"]}))
+            receipt.chmod(0o444)
+            installed.chmod(0o555)
+            environment = image_dependency_environment(
+                wheelhouse=wheelhouse, contract=contract, installed_runtime=installed,
+                required_uid=os.getuid(),
+            )
+            self.assertEqual(environment["CODINGWORKSPACE_DEPENDENCY_RUNTIME_PATH"], str(installed))
+            installed.chmod(0o755)
+            with self.assertRaisesRegex(RuntimeError, "installed dependencies are unsafe"):
+                image_dependency_environment(wheelhouse=wheelhouse, contract=contract,
+                                             installed_runtime=installed, required_uid=os.getuid())
+            installed.chmod(0o555)
+            receipt.chmod(0o644)
+            receipt.write_text(json.dumps({"schema": "codingworkspace-installed-dependencies/v1",
+                                           "runtimeId": "wrong-version"}))
+            receipt.chmod(0o444)
+            with self.assertRaisesRegex(RuntimeError, "wheelhouse version"):
+                image_dependency_environment(wheelhouse=wheelhouse, contract=contract,
+                                             installed_runtime=installed, required_uid=os.getuid())
+
     def test_root_finalizer_changes_only_identity_and_is_idempotent(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             wheelhouse = Path(temporary) / "wheelhouse"

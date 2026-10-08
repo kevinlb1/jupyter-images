@@ -444,3 +444,20 @@ roles sourced from LTIC configuration, not a student PVC. Changes take effect
 on Stop/Start. No roster is embedded in the image and no Hub-wide admin grant
 is requested. Central staff actions require independent verified identity and
 membership; these pod-local hints are not central authorization proof.
+
+## Versioned installed starter dependencies
+
+New CodingWorkspace sources build `/opt/codingworkspace-installed-dependencies`
+from the verified wheelhouse without downloads. The image records exact input
+hashes, package/Python version identity, successful imports and `pip check`, and
+permanent logical file sizes/counts. The inherited `/opt/conda` interpreter and
+libraries are also root-owned and non-writable by the notebook user.
+
+CodingWorkspace verifies this local image asset once per process/version, then
+links matching project `.venv` paths to it. Dependencies are not copied to or
+periodically scanned on the student's PVC. The known previous canonical
+installer hash qualifies for the same environment without changing tracked
+student files; the platform runs the sealed installer and keeps a separate
+project-preparation receipt. Changed requirements or custom installers use a
+normal writable project virtualenv and storage accounting. Old-source lifecycle
+fixtures retain that path because they do not ship the new builder.
