@@ -534,6 +534,11 @@ if importlib.util.find_spec("codingworkspace.immutable_dependencies") is not Non
     assert runtime.logical_bytes > 0 and runtime.entries > 0, runtime
     assert runtime_for(settings, Path(settings.starter_repo_url)) is runtime
     assert configured_runtime(settings) is runtime
+    assert {
+        "d459e1d0aabe2b684d29c834c9b3fecabece4fe8be8577f97dc2a14c463c0512",
+        "0bfaad2bec5534445ec0a7c19c0d873fdb9e0f7b5eaa6e95f342622548d946db",
+    } <= set(runtime.manifest.get("compatibleInstallScriptSha256", []))
+    assert b"CODINGWORKSPACE_PREINSTALLED_PYTHON" in (runtime.root / "install_checkout.sh").read_bytes()
     print("Verified versioned installed dependencies:", runtime.manifest["runtimeId"],
           runtime.logical_bytes, runtime.entries)
 assert bubblewrap_executable(settings) == "/usr/bin/bwrap", settings.bubblewrap_command

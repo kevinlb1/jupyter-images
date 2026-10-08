@@ -454,10 +454,17 @@ permanent logical file sizes/counts. The inherited `/opt/conda` interpreter and
 libraries are also root-owned and non-writable by the notebook user.
 
 CodingWorkspace verifies this local image asset once per process/version, then
-links matching project `.venv` paths to it. Dependencies are not copied to or
-periodically scanned on the student's PVC. The known previous canonical
-installer hash qualifies for the same environment without changing tracked
-student files; the platform runs the sealed installer and keeps a separate
+creates a tiny real project `.venv/bin` directory with executable entry-point
+shims that run the image Python. Dependencies are not copied to or periodically
+scanned on the student's PVC. Known previous canonical installer hashes qualify
+for the same environment without changing tracked student files; the platform
+runs the sealed installer with the verified Python path and keeps a separate
 project-preparation receipt. Changed requirements or custom installers use a
-normal writable project virtualenv and storage accounting. Old-source lifecycle
-fixtures retain that path because they do not ship the new builder.
+normal writable project virtualenv and storage accounting.
+
+The real shim directory preserves rollback compatibility: an older
+CodingWorkspace release sees the entry point even if its image lacks the new
+dependency runtime, removes the unstamped shim safely, and rebuilds an ordinary
+project virtualenv. It does not follow or delete image dependency files.
+Old-source lifecycle fixtures retain the ordinary installer path because they
+do not ship the new builder.

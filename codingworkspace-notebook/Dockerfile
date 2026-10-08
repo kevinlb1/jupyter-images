@@ -262,7 +262,9 @@ RUN set -eux; \
             --checkout /opt/codingworkspace-starters/GizmoApp \
             --output-dir /opt/codingworkspace-installed-dependencies \
             --compatible-install-script-sha256 \
-                d459e1d0aabe2b684d29c834c9b3fecabece4fe8be8577f97dc2a14c463c0512; \
+                d459e1d0aabe2b684d29c834c9b3fecabece4fe8be8577f97dc2a14c463c0512 \
+            --compatible-install-script-sha256 \
+                0bfaad2bec5534445ec0a7c19c0d873fdb9e0f7b5eaa6e95f342622548d946db; \
         rm -f /tmp/build_installed_dependencies.py; \
     fi
 LABEL org.codingworkspace.source-revision="${CW_REF}" \
