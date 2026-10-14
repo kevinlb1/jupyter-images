@@ -108,7 +108,7 @@ jobs:
           fi
           git clone --quiet https://github.com/kevinlb1/SharedWorkerPool.git "$RUNNER_TEMP/worker-fixture"
           git -C "$RUNNER_TEMP/worker-fixture" checkout --quiet --detach ad083d16bb6debe77aa6b2a8a5a9ce09904f6972
-          python -m pip install --disable-pip-version-check cryptography==50.0.1 "$RUNNER_TEMP/worker-fixture"
+          python -m pip install --disable-pip-version-check cryptography==50.0.1 PyYAML==6.0.3 "$RUNNER_TEMP/worker-fixture"
           # Use the actual released OpenCode binary for the loopback model fixtures.
           fixture=$(docker create "$TEST_IMAGE")
           docker cp "$fixture:/usr/local/bin/opencode" "$RUNNER_TEMP/opencode"
