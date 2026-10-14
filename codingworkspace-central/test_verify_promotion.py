@@ -304,6 +304,27 @@ class PromotionGateTests(unittest.TestCase):
                 self.assertEqual(body["sourceImage"], f"ghcr.io/ubc/codingworkspace-course-{family}@{DIGEST}")
                 self.assertEqual(body["promotedImage"], f"ghcr.io/ubc/codingworkspace-{family}@{DIGEST}")
 
+    def test_validator_uses_existing_git_package_with_distinct_receipt(self):
+        result, output = self.admit("git-validator", "ghcr.io/ubc/codingworkspace-course-git",
+                                   "ghcr.io/ubc/codingworkspace-git")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(output.read_text())["kind"], "CodingWorkspaceGitValidatorAdmissionReceipt")
+        result, _ = self.admit("git-validator", "ghcr.io/ubc/codingworkspace-course-central",
+                              "ghcr.io/ubc/codingworkspace-git")
+        self.assertEqual(result.returncode, 1)
+
+    def test_validator_requires_its_own_uid_and_credential_free_role(self):
+        for user, role, expected in (("10002:10002", "credential-free-institutional-git-validator", 0),
+                                     ("10001:10001", "credential-free-institutional-git-validator", 1),
+                                     ("10002:10002", "institutional-git-integration", 1)):
+            with self.subTest(user=user, role=role):
+                image_config = config(**{"codingworkspace.ubc.ca/role": role})
+                image_config["config"]["User"] = user
+                result = self.run_gate("image", "--manifest", self.write("index.json", index()),
+                    "--config", self.write("config.json", image_config), "--source-commit", COMMIT,
+                    "--expect-source", SOURCE_URL, "--expect-user", user, "--image-family", "git-validator")
+                self.assertEqual(result.returncode, expected, result.stderr)
+
     def test_admitted_image_cannot_be_its_own_source_and_other_sources_are_refused(self):
         for source in ("ghcr.io/ubc/codingworkspace-central",          # the admitted image itself
                        "ghcr.io/ubc/codingworkspace-course-git",       # course prefix, wrong family

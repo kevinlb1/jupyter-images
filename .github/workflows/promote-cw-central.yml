@@ -35,7 +35,7 @@ on:
         description: Course image family to admit (central, Git workers, or shared apps)
         required: false
         type: choice
-        options: [central, git, group-app]
+        options: [central, git, git-validator, group-app]
         default: central
       source_namespace:
         description: >-
@@ -95,15 +95,15 @@ jobs:
       packages: write
     env:
       IMAGE_FAMILY: ${{ inputs.image_family || 'central' }}
-      EXPECTED_USER: ${{ inputs.image_family == 'group-app' && '10008:10008' || '10001:10001' }}
+      EXPECTED_USER: ${{ inputs.image_family == 'git-validator' && '10002:10002' || inputs.image_family == 'group-app' && '10008:10008' || '10001:10001' }}
       # Registry path and expected OCI source label switch together: images built after the
       # repository moved to ubc carry https://github.com/ubc/CodingWorkspace as their source.
       # The course-org prefix keeps course builds distinct from the admitted destination below.
-      SOURCE_REPOSITORY: ${{ inputs.source_namespace == 'course-org' && format('ghcr.io/ubc/codingworkspace-course-{0}', inputs.image_family || 'central') || format('ghcr.io/kevinlb1/codingworkspace-{0}', inputs.image_family || 'central') }}
+      SOURCE_REPOSITORY: ${{ inputs.source_namespace == 'course-org' && format('ghcr.io/ubc/codingworkspace-course-{0}', inputs.image_family == 'git-validator' && 'git' || inputs.image_family || 'central') || format('ghcr.io/kevinlb1/codingworkspace-{0}', inputs.image_family == 'git-validator' && 'git' || inputs.image_family || 'central') }}
       SOURCE_URL: ${{ inputs.source_namespace == 'course-org' && 'https://github.com/ubc/CodingWorkspace' || 'https://github.com/kevinlb1/CodingWorkspace' }}
-      DESTINATION_REPOSITORY: ghcr.io/ubc/codingworkspace-${{ inputs.image_family || 'central' }}
+      DESTINATION_REPOSITORY: ghcr.io/ubc/codingworkspace-${{ inputs.image_family == 'git-validator' && 'git' || inputs.image_family || 'central' }}
       DESTINATION_ORG: ubc
-      DESTINATION_PACKAGE: codingworkspace-${{ inputs.image_family || 'central' }}
+      DESTINATION_PACKAGE: codingworkspace-${{ inputs.image_family == 'git-validator' && 'git' || inputs.image_family || 'central' }}
       CRANE_VERSION: v0.22.1
       CRANE_SHA256: 0ab7a1d6932a213aed964ce97666c3077fe691c8606413674a8b3e0b9ec4cda0
       DIGEST: ${{ inputs.digest }}
@@ -121,7 +121,7 @@ jobs:
       - name: Validate the requested references
         run: |
           set -euo pipefail
-          case "$IMAGE_FAMILY" in central|git|group-app) ;; *) echo 'unsupported image family' >&2; exit 1 ;; esac
+          case "$IMAGE_FAMILY" in central|git|git-validator|group-app) ;; *) echo 'unsupported image family' >&2; exit 1 ;; esac
           # Created up front, not beside the first artifact: the upload runs on
           # always(), so a missing directory turns one real failure into a
           # second, misleading "no files were found" error (run 34335016585).
@@ -272,7 +272,7 @@ jobs:
             --config evidence/source-config.json \
             --source-commit "$SOURCE_COMMIT" \
             --expect-source "$SOURCE_URL" \
-            --expect-user "$EXPECTED_USER"
+            --expect-user "$EXPECTED_USER" --image-family "$IMAGE_FAMILY"
 
       - name: Apply this side's vulnerability policy to the exact digest
         env:
@@ -312,7 +312,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/write-config"
           export DOCKER_CONFIG="$RUNNER_TEMP/write-config"
           "$RUNNER_TEMP/crane" auth login ghcr.io -u "$ACTOR" --password-stdin <<< "$GHCR_TOKEN"
-          tag="promoted-${SOURCE_COMMIT}-r${GITHUB_RUN_ID}-a${GITHUB_RUN_ATTEMPT}"
+          tag="promoted-${IMAGE_FAMILY}-${SOURCE_COMMIT}-r${GITHUB_RUN_ID}-a${GITHUB_RUN_ATTEMPT}"
           printf '%s\n' "$tag" > evidence/promoted-tag.txt
           "$RUNNER_TEMP/crane" push "$RUNNER_TEMP/oci-layout" "$DESTINATION_REPOSITORY:$tag"
 

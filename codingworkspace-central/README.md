@@ -184,3 +184,16 @@ package assertions before and after publication. The shared-app image executes
 student code: registry admission does not approve its cluster sandbox, quotas,
 storage, secrets, routing, multi-pod behavior, or student activation. Those
 remain separate managed-deployment and course acceptance gates.
+
+
+### Isolated Git validator admission
+
+Select `image_family=git-validator` for the credential-free validation image.
+It shares the existing private course/admitted **Git registry packages**, using
+its own immutable digest and `promoted-git-validator-*` tag. It must run as
+`10002:10002` and carry the `credential-free-institutional-git-validator` role
+label; selecting the ordinary Git worker image is rejected. The independent
+review environment, course receipt, source revision, provenance, private-package
+checks, platform scan and digest-preserving copy all apply unchanged. No new
+package or registry read credential is needed. Admission does not enable the
+cluster sandbox or student write access.

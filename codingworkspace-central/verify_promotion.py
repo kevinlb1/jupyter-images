@@ -103,6 +103,10 @@ def check_image(arguments: argparse.Namespace) -> None:
 
     settings = config.get("config") or {}
     labels = settings.get("Labels") or {}
+    if getattr(arguments, "image_family", None) == "git-validator":
+        require(settings.get("User") == "10002:10002", "validator must run as UID 10002")
+        require(labels.get("codingworkspace.ubc.ca/role") == "credential-free-institutional-git-validator",
+                "validator role label is missing or incorrect")
 
     require(REVIEW_LABEL not in labels,
             f"image carries {REVIEW_LABEL}={labels.get(REVIEW_LABEL)!r}: this is the "
@@ -150,18 +154,20 @@ def write_admission_receipt(arguments: argparse.Namespace) -> None:
     family = getattr(arguments, "image_family", "central")
     kinds = {"central": "CodingWorkspaceCentralAdmissionReceipt",
              "git": "CodingWorkspaceGitAdmissionReceipt",
+             "git-validator": "CodingWorkspaceGitValidatorAdmissionReceipt",
              "group-app": "CodingWorkspaceGroupAppAdmissionReceipt"}
     require(family in kinds, "unsupported image family")
     # The course publishes under its original owner or, after CodingWorkspace moved to the ubc
     # org, under a course- prefix. Never the admitted destination itself: admission must copy
     # between two distinct repositories, or a course build could stand in for an admitted image.
-    allowed_sources = {"ghcr.io/kevinlb1/codingworkspace-" + family,
-                       "ghcr.io/ubc/codingworkspace-course-" + family}
+    package_family = "git" if family == "git-validator" else family
+    allowed_sources = {"ghcr.io/kevinlb1/codingworkspace-" + package_family,
+                       "ghcr.io/ubc/codingworkspace-course-" + package_family}
     require(arguments.source_repository in allowed_sources,
             "source repository differs from selected image family")
     require(arguments.source_repository != arguments.destination_repository,
             "source and destination repositories must differ")
-    require(arguments.destination_repository == "ghcr.io/ubc/codingworkspace-" + family,
+    require(arguments.destination_repository == "ghcr.io/ubc/codingworkspace-" + package_family,
             "destination repository differs from selected image family")
     receipt = {
         "kind": kinds[family],
@@ -203,6 +209,7 @@ def main() -> int:
     image.add_argument("--source-commit", required=True)
     image.add_argument("--expect-user", default="10001:10001")
     image.add_argument("--expect-source", required=True)
+    image.add_argument("--image-family", choices=["central", "git", "git-validator", "group-app"])
     image.set_defaults(handler=check_image)
 
     destination = subcommands.add_parser("destination")
@@ -213,7 +220,7 @@ def main() -> int:
     destination.set_defaults(handler=check_destination)
 
     admission = subcommands.add_parser("admission-receipt")
-    admission.add_argument("--image-family", choices=["central", "git", "group-app"], default="central")
+    admission.add_argument("--image-family", choices=["central", "git", "git-validator", "group-app"], default="central")
     admission.add_argument("--digest", required=True)
     admission.add_argument("--source-repository", required=True)
     admission.add_argument("--destination-repository", required=True)
