@@ -85,9 +85,9 @@ make_result = subprocess.run(
 )
 assert make_result.stdout.strip() == "make-ok", make_result.stdout
 assert md.version("jupyter-server-proxy") == "4.5.0"
-assert md.version("jupyterhub") == "5.5.0"
-assert md.version("notebook") == "7.6.1"
-assert md.version("jupyterlab") == "4.6.2"
+assert md.version("jupyterhub") == "5.5.1"
+assert md.version("notebook") == "7.6.3"
+assert md.version("jupyterlab") == "4.6.4"
 assert md.version("codingworkspace")
 
 sys.path.insert(0, "/opt/codingworkspace-jupyter/runtime")

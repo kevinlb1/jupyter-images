@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 # codingworkspace-notebook: a narrow JupyterHub single-user image. Jupyter
 # Server provides Hub OAuth/activity and one authenticated named proxy only.
-ARG BASE_CONTAINER=quay.io/jupyter/base-notebook:hub-5.5.0@sha256:e6f115af0bc688b884bec4e00523512deb808972e117797608fa1bf29931714a
+ARG BASE_CONTAINER=quay.io/jupyter/base-notebook:hub-5.5.1@sha256:292da16615e356b8b1258dab58f86386d9624e2a9532fc1d7ab1d6585dc7773a
 
 # Fork pull requests cannot receive the private CodingWorkspace source. This
 # scratch target still exercises the production bundle-only named-context
@@ -22,8 +22,8 @@ ARG DEPENDENCY_BUILDER_REF
 ARG DEPENDENCY_BUILDER_BLOB
 ARG DEPENDENCY_WHEEL_INDEX_URL
 LABEL course="AI100" \
-      org.opencontainers.image.base.name="quay.io/jupyter/base-notebook:hub-5.5.0@sha256:e6f115af0bc688b884bec4e00523512deb808972e117797608fa1bf29931714a" \
-      org.codingworkspace.node-version="22.23.2" \
+      org.opencontainers.image.base.name="quay.io/jupyter/base-notebook:hub-5.5.1@sha256:292da16615e356b8b1258dab58f86386d9624e2a9532fc1d7ab1d6585dc7773a" \
+      org.codingworkspace.node-version="24.20.0" \
       org.codingworkspace.opencode-version="${OPENCODE_VERSION}"
 
 USER root
@@ -34,6 +34,9 @@ USER root
 # CPU instruction sets. This reviewed release is explicitly amd64-only.
 COPY codingworkspace-notebook/RUNTIME_PINS.env /tmp/codingworkspace-runtime-pins.env
 COPY codingworkspace-notebook/DEPENDENCY_LAYER.env /tmp/codingworkspace-dependency-layer.env
+COPY codingworkspace-notebook/security-apt.txt /tmp/codingworkspace-security-apt.txt
+COPY codingworkspace-notebook/npm-security-lock.json /tmp/codingworkspace-npm-security-lock.json
+COPY codingworkspace-notebook/install_security_assets.py /tmp/install_security_assets.py
 RUN set -eux; \
     expected_opencode_version="${OPENCODE_VERSION}"; \
     expected_dependency_layer_version="${DEPENDENCY_WHEELHOUSE_LAYER_VERSION}"; \
@@ -55,6 +58,7 @@ RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
         "bubblewrap=${BUBBLEWRAP_APT_VERSION}" ca-certificates curl git make xz-utils; \
+    xargs -r apt-get install -y --no-install-recommends --only-upgrade < /tmp/codingworkspace-security-apt.txt; \
     make --version; \
     test "${TARGETARCH}" = "amd64"; \
     case "${TARGETARCH}" in \
@@ -76,6 +80,8 @@ RUN set -eux; \
     test "$(node --version)" = "v${NODE_VERSION}"; \
     test "$(opencode --version)" = "${OPENCODE_VERSION}"; \
     bwrap --version; \
+    /opt/conda/bin/python /tmp/install_security_assets.py --lock /tmp/codingworkspace-npm-security-lock.json --npm-only; \
+    test "$(npm --version)" = "11.21.0"; \
     apt-get clean; \
     rm -rf "${node_archive}" "${opencode_archive}" /tmp/opencode-dist /tmp/opencode \
         /tmp/codingworkspace-runtime-pins.env \
@@ -238,8 +244,11 @@ RUN --mount=type=bind,from=cwsrc,target=/cwsrc \
     pip install --no-cache-dir --no-deps --only-binary=:all: --require-hashes \
         --requirement /tmp/proxy-requirements.txt; \
     pip install --no-cache-dir --no-deps --no-build-isolation /tmp/cwbuild; \
+    pip uninstall --yes nbclassic conda-rattler-solver py-rattler; \
+    /opt/conda/bin/python /tmp/install_security_assets.py --lock /tmp/codingworkspace-npm-security-lock.json --jupyterhub-only; \
     pip check; \
-    python -c 'import importlib.metadata as m; assert m.version("jupyterhub") == "5.5.0"; assert m.version("jupyter-server-proxy") == "4.5.0"; assert m.version("aiohttp") == "3.14.3"; assert m.version("simpervisor") == "1.0.0"; assert m.version("notebook") == "7.6.1"; assert m.version("jupyterlab") == "4.6.2"; assert m.version("pyjwt") == "2.14.0"'; \
+    conda list --json > /tmp/codingworkspace-conda-inventory.json; \
+    python -c 'import importlib.metadata as m; assert m.version("jupyterhub") == "5.5.1"; assert m.version("jupyter-server-proxy") == "4.5.0"; assert m.version("aiohttp") == "3.14.3"; assert m.version("simpervisor") == "1.0.0"; assert m.version("notebook") == "7.6.3"; assert m.version("jupyterlab") == "4.6.4"; assert m.version("pyjwt") == "2.15.1"'; \
     python -I /tmp/verify_installed_source.py installed \
         --source /tmp/cwbuild --package codingworkspace; \
     if [ -f /tmp/cwbuild/scripts/build_installed_dependencies.py ]; then \

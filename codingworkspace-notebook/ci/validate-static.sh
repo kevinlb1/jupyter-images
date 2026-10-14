@@ -45,7 +45,7 @@ printf 'Validated full source pins: CW=%s GizmoApp=%s\n' "$CW_REF" "$GIZMOAPP_RE
 # release head and then dispatches build.yml, so its value cannot be asserted
 # here. read_pin.py already rejects anything but one full lowercase SHA, and
 # build-pr.yml separately refuses a pull request that changes the pin.
-test "$GIZMOAPP_REF" = 35c172659b651e2d98e09292f2b2c6b73751223a \
+test "$GIZMOAPP_REF" = f685cbad1a251df42ed3d8838e7200a1c355a479 \
   || fail "the wheelhouse image must use the reviewed versioned-dependency installer GizmoApp commit"
 . codingworkspace-notebook/DEPENDENCY_LAYER.env
 test "$DEPENDENCY_WHEELHOUSE_LAYER_VERSION" = v1 \
@@ -98,6 +98,7 @@ for path in sorted(Path("codingworkspace-notebook").glob("*.py")) + sorted(
     compile(path.read_text(encoding="utf-8"), str(path), "exec")
 PY
 python3 codingworkspace-notebook/ci/validate_ci_policy.py
+python3 codingworkspace-notebook/ci/test_security_assets.py -v
 python3 codingworkspace-notebook/ci/test_prepare_git_context.py -v
 python3 codingworkspace-notebook/ci/test_read_pr_build_inputs.py -v
 python3 codingworkspace-notebook/ci/test_select_cw_build_ref.py -v
@@ -121,15 +122,15 @@ test "$actual_host_fingerprint" = "$expected_host_fingerprint" \
 dockerfile=codingworkspace-notebook/Dockerfile
 grep -Eq '^ARG BASE_CONTAINER=.*@sha256:[0-9a-f]{64}$' "$dockerfile" \
   || fail "the base notebook image is not pinned by digest"
-grep -Eq 'hub-5\.5\.0' "$dockerfile" || fail "the base image is not tied to JupyterHub 5.5.0"
+grep -Eq 'hub-5\.5\.1' "$dockerfile" || fail "the base image is not tied to JupyterHub 5.5.1"
 grep -Eq '^jupyter-server-proxy==4\.5\.0' codingworkspace-notebook/proxy-requirements.txt \
   || fail "jupyter-server-proxy is not pinned to 4.5.0"
 grep -Eq -- '--no-deps --only-binary=:all: --require-hashes' "$dockerfile" \
   || fail "the proxy Python runtime is not installed in hash-required binary-only mode"
 grep -Eq 'proxy-requirements\.txt' "$dockerfile" \
   || fail "the hash-locked proxy requirement set is not used"
-grep -Eq 'jupyterhub.*5\.5\.0|5\.5\.0.*jupyterhub' "$dockerfile" \
-  || fail "JupyterHub Python 5.5.0 is not asserted by the image build"
+grep -Eq 'jupyterhub.*5\.5\.1|5\.5\.1.*jupyterhub' "$dockerfile" \
+  || fail "JupyterHub Python 5.5.1 is not asserted by the image build"
 grep -Eq 'JUPYTERHUB_SINGLEUSER_APP=jupyter_server\.serverapp\.ServerApp' "$dockerfile" \
   || fail "the single-user application is not pinned to plain Jupyter Server"
 grep -Eq 'JUPYTER_RUNTIME_DIR=/tmp/codingworkspace-jupyter-runtime' "$dockerfile" \
@@ -174,10 +175,10 @@ grep -Eq '/usr/local/sbin/codingworkspace-prestop' "$dockerfile" \
   || fail "the image-side preStop helper is not installed"
 grep -Eq 'git .* archive --format=tar' "$dockerfile" \
   || fail "CodingWorkspace must be installed from the pinned Git object, not working-tree contents"
-grep -Eq 'notebook.*7\.6\.1|7\.6\.1.*notebook' "$dockerfile" \
-  || fail "Notebook 7.6.1 is not asserted by the image build"
-grep -Eq 'jupyterlab.*4\.6\.2|4\.6\.2.*jupyterlab' "$dockerfile" \
-  || fail "JupyterLab 4.6.2 is not asserted by the image build"
+grep -Eq 'notebook.*7\.6\.3|7\.6\.3.*notebook' "$dockerfile" \
+  || fail "Notebook 7.6.3 is not asserted by the image build"
+grep -Eq 'jupyterlab.*4\.6\.4|4\.6\.4.*jupyterlab' "$dockerfile" \
+  || fail "JupyterLab 4.6.4 is not asserted by the image build"
 reject_ere_matches \
   "an unpinned OpenCode or jupyter-server-proxy installer remains" \
   'https://opencode\.ai/install|pip install[^#]*jupyter-server-proxy([[:space:]\\]|$)' \
@@ -211,7 +212,7 @@ expected = {
     "aiosignal": "1.4.0",
     "attrs": "26.1.0",
     "frozenlist": "1.8.0",
-    "multidict": "6.7.1",
+    "multidict": "6.9.1",
     "propcache": "0.5.2",
     "idna": "3.19",
     "yarl": "1.24.5",
@@ -220,7 +221,14 @@ expected = {
     "simpervisor": "1.0.0",
     # Security override of the base image copy (CVE-2026-102268), not a proxy
     # dependency; see the comment in proxy-requirements.txt. Remove together.
-    "pyjwt": "2.14.0",
+    "pyjwt": "2.15.1",
+    "urllib3": "2.8.0",
+    "tornado": "6.5.10",
+    "oauthlib": "4.0.0",
+    "notebook": "7.6.3",
+    "jupyterlab": "4.6.4",
+    "jupyter-server": "2.21.1",
+    "Mako": "1.4.3",
 }
 seen: dict[str, str] = {}
 for requirement in logical:

@@ -96,4 +96,5 @@ if [ "$gate_status" -ne 0 ]; then
   echo "Fixable CRITICAL vulnerability policy rejected $image; see $report_dir" >&2
   exit "$gate_status"
 fi
-echo "Local image security gate passed: $report_dir"
+python3 "$(dirname "$0")/enforce_security_fixes.py" "$report_dir/trivy-all.json"
+echo "Local image security gates passed: $report_dir"
