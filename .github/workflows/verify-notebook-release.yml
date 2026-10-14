@@ -60,6 +60,8 @@ jobs:
           gizmo_ref=$(docker image inspect --format '{{index .Config.Labels "org.codingworkspace.starter-revision"}}' "$image")
           [[ "$cw_ref" =~ ^[a-f0-9]{40}$ ]] && [[ "$gizmo_ref" =~ ^[a-f0-9]{40}$ ]]
           printf 'TEST_IMAGE=%s\nPRIOR_IMAGE=%s\nCW_REF=%s\nGIZMOAPP_REF=%s\n' "$image" "$prior" "$cw_ref" "$gizmo_ref" >> "$GITHUB_ENV"
+          python_version=$(docker run --rm --entrypoint /opt/conda/bin/python "$image" -I -c 'import platform; print(platform.python_version())')
+          echo "NOTEBOOK_PYTHON=$python_version" >> "$GITHUB_ENV"
           mkdir "$RUNNER_TEMP/regression-evidence"
           printf 'image=%s\nprior_image=%s\ncw_ref=%s\ngizmo_ref=%s\nharness_ref=%s\n' "$image" "$prior" "$cw_ref" "$gizmo_ref" "$GITHUB_SHA" > "$RUNNER_TEMP/regression-evidence/identity.txt"
       - name: Prepare exact released tests without repository credentials
@@ -74,6 +76,8 @@ jobs:
           GIT_SSH_COMMAND="ssh -i $keyfile -o IdentitiesOnly=yes -o UserKnownHostsFile=$GITHUB_WORKSPACE/codingworkspace-notebook/ci/github_known_hosts -o StrictHostKeyChecking=yes" \
             git clone --quiet --no-tags git@github.com:kevinlb1/CodingWorkspace.git "$RUNNER_TEMP/regression-git"
           git -C "$RUNNER_TEMP/regression-git" merge-base --is-ancestor "$CW_REF" origin/main
+          git -C "$RUNNER_TEMP/regression-git" checkout --quiet --detach "$CW_REF"
+          git -C "$RUNNER_TEMP/regression-git" remote remove origin
           umask 022
           mkdir "$RUNNER_TEMP/regression-source"
           git -C "$RUNNER_TEMP/regression-git" archive "$CW_REF" | tar -x -C "$RUNNER_TEMP/regression-source"
@@ -89,26 +93,61 @@ jobs:
             -v "$GITHUB_WORKSPACE/codingworkspace-notebook/ci:/checks:ro" \
             "$TEST_IMAGE" -I /checks/check_dependency_compatibility.py \
             2>&1 | tee "$RUNNER_TEMP/regression-evidence/dependency-compatibility.log"
-      - name: Run complete released platform test suite in exact image
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: ${{ env.NOTEBOOK_PYTHON }}
+      - name: Prepare full-suite host prerequisites
         run: |
           set -euo pipefail
-          # These tests explicitly supply their own deployment environments.
-          # Clear the image's Hub defaults only for this disposable unit runner.
+          # Central/group/Slurm tests require a system Python, real Git history,
+          # and the separate worker package. They do not run in student pods.
+          sudo apt-get -o Dir::Etc::sourcelist=/etc/apt/sources.list.d/ubuntu.sources -o Dir::Etc::sourceparts=- update
+          sudo apt-get -o Dir::Etc::sourcelist=/etc/apt/sources.list.d/ubuntu.sources -o Dir::Etc::sourceparts=- install --yes bubblewrap
           if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
             sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           fi
-          docker run --rm --network none --security-opt seccomp=unconfined --security-opt apparmor=unconfined \
-            --entrypoint /usr/bin/env -v "$RUNNER_TEMP/regression-source:/cw-source:ro" \
-            "$TEST_IMAGE" -i PATH=/opt/conda/bin:/usr/local/bin:/usr/bin:/bin HOME=/tmp/test-home \
-            LANG=C.UTF-8 PYTHONDONTWRITEBYTECODE=1 CW_TEST_OPENCODE=/usr/local/bin/opencode \
-            CW_PROFILE_OPENCODE_BIN=/usr/local/bin/opencode /bin/bash -ceu '
-              mkdir -p "$HOME" /tmp/cw-tests
-              cp -a /cw-source/. /tmp/cw-tests/
-              cd /tmp/cw-tests
+          git clone --quiet https://github.com/kevinlb1/SharedWorkerPool.git "$RUNNER_TEMP/worker-fixture"
+          git -C "$RUNNER_TEMP/worker-fixture" checkout --quiet --detach ad083d16bb6debe77aa6b2a8a5a9ce09904f6972
+          python -m pip install --disable-pip-version-check cryptography==50.0.1 "$RUNNER_TEMP/worker-fixture"
+          # Use the actual released OpenCode binary for the loopback model fixtures.
+          fixture=$(docker create "$TEST_IMAGE")
+          docker cp "$fixture:/usr/local/bin/opencode" "$RUNNER_TEMP/opencode"
+          docker rm "$fixture"
+          chmod 0755 "$RUNNER_TEMP/opencode"
+          # The old test CA relies on OpenSSL defaults. Supply a conforming test
+          # CA profile for Python 3.13 strict verification; never relax TLS checks.
+          printf '%s\n' '[req]' 'distinguished_name=dn' 'x509_extensions=ca' '[dn]' '[ca]' \
+            'basicConstraints=critical,CA:true' 'keyUsage=critical,keyCertSign,cRLSign' \
+            'subjectKeyIdentifier=hash' 'authorityKeyIdentifier=keyid:always' > "$RUNNER_TEMP/test-openssl.cnf"
+          printf 'suite_environment=ubuntu-24.04-python-%s\nworker_ref=%s\n' "$NOTEBOOK_PYTHON" \
+            ad083d16bb6debe77aa6b2a8a5a9ce09904f6972 >> "$RUNNER_TEMP/regression-evidence/identity.txt"
+      - name: Run complete released platform suite with matching Python version
+        run: |
+          set -euo pipefail
+          mkdir "$RUNNER_TEMP/suite-home"
+          cd "$RUNNER_TEMP/regression-git"
+          env -i PATH="$PATH" HOME="$RUNNER_TEMP/suite-home" LANG=C.UTF-8 \
+            PYTHONDONTWRITEBYTECODE=1 OPENSSL_CONF="$RUNNER_TEMP/test-openssl.cnf" \
+            CW_TEST_OPENCODE="$RUNNER_TEMP/opencode" CW_PROFILE_OPENCODE_BIN="$RUNNER_TEMP/opencode" \
+            /bin/bash -ceu '
               git config --global user.name "Disposable test fixture"
               git config --global user.email "fixture@example.invalid"
               python -m unittest discover -s tests -v
             ' 2>&1 | tee "$RUNNER_TEMP/regression-evidence/full-suite.log"
+      - name: Run complete baked starter suite in unmodified published image
+        if: ${{ !cancelled() && env.TEST_IMAGE != '' }}
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --entrypoint /usr/bin/env "$TEST_IMAGE" \
+            -i PATH=/opt/conda/bin:/usr/local/bin:/usr/bin:/bin HOME=/tmp/test-home LANG=C.UTF-8 \
+            PYTHONDONTWRITEBYTECODE=1 /bin/bash -ceu '
+              mkdir -p "$HOME"
+              git clone --quiet --no-local --no-hardlinks /opt/codingworkspace-starters/GizmoApp /tmp/starter
+              cd /tmp/starter
+              git config --global user.name "Disposable test fixture"
+              git config --global user.email "fixture@example.invalid"
+              /opt/codingworkspace-installed-dependencies/venv/bin/python -m unittest discover -s tests -v
+            ' 2>&1 | tee "$RUNNER_TEMP/regression-evidence/starter-suite.log"
       - name: Exercise actual prior-image upgrade and lifecycle
         if: ${{ !cancelled() && env.TEST_IMAGE != '' }}
         run: |

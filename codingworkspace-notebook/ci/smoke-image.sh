@@ -946,6 +946,9 @@ if [ -n "$PRIOR_IMAGE" ]; then
     /opt/conda/bin/python - legacy "http://127.0.0.1:8888${BASE_URL}codingworkspace" \
     "unused-legacy-request" < "$SCRIPT_DIR/smoke_workspace_creation.py")
   [[ "$prior_workspace_id" =~ ^ws-[a-f0-9]{12}$ ]]
+  docker exec -i -e "CW_SMOKE_TOKEN=$TOKEN" "$prior_container" \
+    /opt/conda/bin/python - preview "http://127.0.0.1:8888${BASE_URL}codingworkspace" \
+    "$prior_workspace_id" < "$SCRIPT_DIR/smoke_workspace_creation.py"
   run_verified_prestop "$prior_container"
   docker stop --time 15 "$prior_container" >/dev/null
   upgraded_container="cw-smoke-upgraded-$suffix"
@@ -953,6 +956,9 @@ if [ -n "$PRIOR_IMAGE" ]; then
   wait_for_code "$upgraded_container" "${BASE_URL}codingworkspace/readyz" 200
   docker exec -i -e "CW_SMOKE_TOKEN=$TOKEN" "$upgraded_container" \
     /opt/conda/bin/python - verify "http://127.0.0.1:8888${BASE_URL}codingworkspace" \
+    "$prior_workspace_id" < "$SCRIPT_DIR/smoke_workspace_creation.py"
+  docker exec -i -e "CW_SMOKE_TOKEN=$TOKEN" "$upgraded_container" \
+    /opt/conda/bin/python - preview "http://127.0.0.1:8888${BASE_URL}codingworkspace" \
     "$prior_workspace_id" < "$SCRIPT_DIR/smoke_workspace_creation.py"
   run_verified_prestop "$upgraded_container"
   docker stop --time 15 "$upgraded_container" >/dev/null
