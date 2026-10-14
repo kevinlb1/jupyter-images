@@ -558,6 +558,10 @@ jobs:
           ignore-unfixed: true
           exit-code: 1
 
+      - name: Enforce all available vulnerability fixes
+        id: available_fix_gate
+        run: python3 codingworkspace-notebook/ci/enforce_security_fixes.py evidence/${{ matrix.image }}-trivy.json
+
       - name: Record release evidence
         if: always()
         run: |
@@ -587,6 +591,7 @@ jobs:
             printf 'dependency_exact_evidence_result=%s\n' "${{ steps.dependency_exact_evidence.outcome }}"
             printf 'sbom_result=%s\n' "${{ steps.sbom.outcome }}"
             printf 'vulnerability_scan_result=%s\n' "${{ steps.vulnerability_scan.outcome }}"
+            printf 'available_fix_gate_result=%s\n' "${{ steps.available_fix_gate.outcome }}"
             printf 'vulnerability_gate_result=%s\n' "${{ steps.vulnerability_gate.outcome }}"
             printf 'codingworkspace_promotion_requested=%s\n' "${{ matrix.image == 'codingworkspace-notebook' && github.event_name == 'workflow_dispatch' && inputs.promote_codingworkspace == true }}"
             printf 'syft=v1.51.1\n'

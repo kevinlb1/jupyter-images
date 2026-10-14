@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "packages": [
+    {
+      "name": "npm",
+      "version": "11.21.0",
+      "target": "npm",
+      "url": "https://registry.npmjs.org/npm/-/npm-11.21.0.tgz",
+      "sha256": "783e7c92bf73b442fb800c2d6ef3921e86da8894a700fed45140e37916877482",
+      "integrity": "sha512-Zov8KhamNneiLdELtj5YALtNmJW4L4fCLTzjfpzXG2w6MSHcf0UxgdlK5uloCuksWT+7mGUU7wi79cO6RqivPg=="
+    },
+    {
+      "name": "brace-expansion",
+      "version": "5.0.12",
+      "target": "npm/node_modules/brace-expansion",
+      "url": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.12.tgz",
+      "sha256": "ef8448ec78f20b692f04fa6d01f39b5ab34c66404bea3429f5a39c6c9e0be8b4",
+      "integrity": "sha512-YovQ3rzhaLMIrDjNDMkNS01tea93qhEhG5xy8f6+R0l+dw3Ki+5sCoIoI942iuLZTHWogWktgwVDhU09iNEimQ=="
+    },
+    {
+      "name": "ip-address",
+      "version": "10.7.1",
+      "target": "npm/node_modules/ip-address",
+      "url": "https://registry.npmjs.org/ip-address/-/ip-address-10.7.1.tgz",
+      "sha256": "7f99ac7abda701afe1fd1e36de462236fb4d1eb8c595d7ae0267bba7d8ee55f8",
+      "integrity": "sha512-4OUAqU9Z1i3vCnS05hzGiFnEMDpQ+62pAD/MVQOp83fYyNC8GleCqaS0QikQBmcWCrKFiUs/B8ztRRiYOAXuCA=="
+    },
+    {
+      "name": "postcss-selector-parser",
+      "version": "7.1.6",
+      "target": "npm/node_modules/postcss-selector-parser",
+      "url": "https://registry.npmjs.org/postcss-selector-parser/-/postcss-selector-parser-7.1.6.tgz",
+      "sha256": "48c903f98c5591d8d26f16f389d5cb3435459474c645209a79f6241bf4b657b6",
+      "integrity": "sha512-7qASPzhKF2l2KLboRZux8CCTRMdGiV08vWmyKzPz22qZ7ZjQBOeY7rNzNoCLSUiftJ7HUq0GERHmxw/t0dCdMw=="
+    },
+    {
+      "name": "undici",
+      "version": "6.28.1",
+      "target": "npm/node_modules/undici",
+      "url": "https://registry.npmjs.org/undici/-/undici-6.28.1.tgz",
+      "sha256": "e18191aac9c0ff43dac7fe9b10b7041a22d07addb7b66a6e8ac14a52a5b69b74",
+      "integrity": "sha512-zWpdTVD54H48CIybL0rWQ3ukpb9d23wM7eH5RtfdmeP70cWHNjtfo7P4vZX+5CoDcO53J4Pu5uXp7lNfjc6DRA=="
+    },
+    {
+      "name": "moment",
+      "version": "2.31.0",
+      "target": "jupyterhub/moment",
+      "url": "https://registry.npmjs.org/moment/-/moment-2.31.0.tgz",
+      "sha256": "efddf549c13aa7cf270f573d9c464978ab0810c0652673ae6af1189bb56ab3f8",
+      "integrity": "sha512-0acOTfMiWOheYS4eoWb80yYMb/JLvVv9SHbs2PehaDzfUG0Bw855SKyk0IKTnPGa5+U2bmi3W68l1+sGLX/pvw=="
+    }
+  ]
+}

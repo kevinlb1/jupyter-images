@@ -135,7 +135,7 @@ The trusted build resolves four primary reviewed inputs:
 
 | Input | Pin / source |
 | --- | --- |
-| Notebook base | Digest-pinned `quay.io/jupyter/base-notebook:hub-5.5.0` in `Dockerfile` |
+| Notebook base | Digest-pinned `quay.io/jupyter/base-notebook:hub-5.5.1` in `Dockerfile` |
 | CodingWorkspace | Normally the tracker-owned full SHA in `CW_REF`, equal to the CodingWorkspace `release` head on `jupyter-images` main. A reviewed-main manual dispatch may provide a separate exact full-SHA candidate that is reachable from the freshly cloned private `origin/main`, without editing `CW_REF`; that override can never promote. Private source is cloned with the read-only deploy key and converted to a bundle-only `cwsrc` build context. |
 | GizmoApp starter | Full SHA in `GIZMOAPP_REF`; public source is cloned and converted to a bundle-only `gizmosrc` build context |
 | Dependency builder | `DEPENDENCY_LAYER.env` pins CodingWorkspace commit `83d4956dc2d091309daaf7be32c350c96d8b2aa2` and exact builder blob `7a30db859d3451293f9193b75175801b7ed49ec5`; that one file is extracted from the already authenticated full private clone into a credential-free context |
@@ -468,3 +468,36 @@ dependency runtime, removes the unstamped shim safely, and rebuilds an ordinary
 project virtualenv. It does not follow or delete image dependency files.
 Old-source lifecycle fixtures retain the ordinary installer path because they
 do not ship the new builder.
+
+## October 2026 security refresh
+
+The base is pinned to JupyterHub 5.5.1. `security-apt.txt` pins Ubuntu security
+updates; `proxy-requirements.txt` pins fixed Python wheels with SHA-256 hashes.
+The unused nbclassic frontend and experimental rattler solver are removed;
+Notebook 7, JupyterLab and the normal Conda/libmamba solver remain. Image smoke
+checks still prove authenticated proxy operation and denied notebook surfaces.
+
+`npm-security-lock.json` fixes npm 11 and four bundled components plus Hub's
+Moment asset. `install_security_assets.py` verifies exact upstream tarball
+hashes and package identities, rejects links/traversal, and runs no install
+hooks. Same-major component replacements retain npm's supported Node runtime.
+Full image scans are retained, including unfixed findings; both the existing
+fixable-CRITICAL gate and an all-available-fixes gate must pass before promotion.
+
+Bubblewrap is built from the verified upstream 0.12.0 release in a separate
+stage, with no setuid support. Ubuntu's 0.9.0-1ubuntu0.3 reverted the fix for
+CVE-2026-87766; treating its empty scanner fix field as safe would miss this
+sandbox-setup vulnerability. The source archive SHA-256 is recorded in
+`RUNTIME_PINS.env`; the runtime image asserts its version and exercises it in
+the existing fresh/retained-home isolation smokes. Compiler packages remain
+outside the runtime image. Source: https://github.com/containers/bubblewrap/security/advisories/GHSA-pxhw-h44j-8pfx
+
+The current upstream pip 26.2.1 still bundles vulnerable msgpack/urllib3. The
+image builds `26.2.1+cw1` from hash-verified wheels, replaces both pure-Python
+vendored libraries, and removes the unused legacy pkg_resources metadata
+backend. This image-only wheel requires Python >=3.13 and uses importlib.metadata.
+Its RECORD, component SBOM and provenance are regenerated truthfully. The same
+wheel is used by base pip, ensurepip, the offline wheelhouse and installed app
+dependencies; the finalized dependency identity covers the patched wheel bytes.
+No scanner exclusions are used. Canonical source pins upstream pip 26.2.1;
+PEP 440 permits the reviewed local-version wheel for that exact public version.

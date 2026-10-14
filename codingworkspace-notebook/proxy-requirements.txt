@@ -10,9 +10,10 @@ attrs==26.1.0 \
 frozenlist==1.8.0 \
     --hash=sha256:fb30f9626572a76dfe4293c7194a09fb1fe93ba94c7d4f720dfae3b646b45027 \
     --hash=sha256:eaa352d7047a31d87dafcacbabe89df0aa506abb5b1b85a2fb91bc3faa02d822
-multidict==6.7.1 \
-    --hash=sha256:9d624335fd4fa1c08a53f8b4be7676ebde19cd092b3895c421045ca87895b429 \
-    --hash=sha256:e82d14e3c948952a1a85503817e038cba5905a3352de76b9a465075d072fba23
+multidict==6.9.1 \
+    --hash=sha256:b22ff30006a2f28f8bff878fb93413cbe3a4d1fd517c28081d848c90e9cfd2c8 \
+    --hash=sha256:7fd79c521f6290c69125fa2b85fa65d9e657e6a8ffaf722dc881b926bef4aa5c \
+    --hash=sha256:7bf6478188f4e47bf5686e8a33da4ae28bf43b1b2528d9ee144d28492bfac60b
 propcache==0.5.2 \
     --hash=sha256:4db0ba63d693afd40d249bd93f842b5f144f8fcbb83de05660373bcf30517b1d \
     --hash=sha256:a6ae2198be502c10f09b2516e7b5d019816924bc3183a43ce792a7bd6625e6f4
@@ -28,10 +29,20 @@ jupyter-server-proxy==4.5.0 \
     --hash=sha256:3e3376f8de62aa86623e61d84076feafcaa731b5caf6deb5f0dd5f7a6e74fd24
 simpervisor==1.0.0 \
     --hash=sha256:3e313318264559beea3f475ead202bc1cd58a2f1288363abb5657d306c5b8388
-# Security override, not a proxy dependency: the pinned base ships PyJWT 2.13.0
-# (CVE-2026-102268, fixable CRITICAL, fixed in 2.14.0), which blocks the
-# fixable-CRITICAL gate on every rebuild. Pure Python with no required runtime
-# dependencies on 3.13, so --no-deps is safe; this replaces the base copy.
-# Drop it once the pinned base itself carries >= 2.14.0.
-pyjwt==2.14.0 \
-    --hash=sha256:ad0cef71c756a56e74863c2919cf0985f72decbcfcb550ee2f422e7c62b5eedc
+pyjwt==2.15.1 \
+    --hash=sha256:42d59d631f7768a1028a64c7ff581a9bf7519804daf91fc5b6c56e30eec5e193
+Mako==1.4.3 \
+    --hash=sha256:723296007c870bfd6b3f0c3230dba7198096e5269297ebf5e4eff9e7ffa39d4f
+jupyter-server==2.21.1 \
+    --hash=sha256:2a6467606af7dbae2e7e31640030025969e15db6a649eae334af90415dc71dca
+jupyterlab==4.6.4 \
+    --hash=sha256:15b13f991d3985129c797eb84d9949eeb8b6615e14b444868e642411f2c418b2
+notebook==7.6.3 \
+    --hash=sha256:ad7e0eb765fba836cd4a2ab0c7a3a26cde1d91665fbf6f533b6ae7b2de6d88d2
+oauthlib==4.0.0 \
+    --hash=sha256:624c28c13a0a59cabf9747dfa52af63be3e512a7f2714df16e91b5b3a145e6cd
+tornado==6.5.10 \
+    --hash=sha256:bdf942448169e5336451d0494d7e3d81cfa726d5aa312affdc4682dd62a62f6d \
+    --hash=sha256:69acca6501eed74582b76dbbceee2a91613f54728e3e418346000d7103101676
+urllib3==2.8.0 \
+    --hash=sha256:0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3
