@@ -6,6 +6,7 @@ import json
 import os
 import time
 from urllib.error import HTTPError
+from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
@@ -86,6 +87,40 @@ def create_workspace(request, request_id, *, legacy=False):
     return workspace_id
 
 
+def verify_preview(request, workspace_id, base_url, *, timeout=120):
+    status, payload = request("POST", "/api/workspaces/" + workspace_id + "/app/start", {})
+    if status not in (200, 202):
+        raise SmokeError(f"Preview start rejected: {status}: {payload}")
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        status, payload = request("GET", "/api/workspaces/" + workspace_id)
+        workspace = payload.get("workspace", {})
+        if status != 200 or workspace.get("id") != workspace_id:
+            raise SmokeError("Preview poll lost its workspace")
+        if workspace.get("appRunning"):
+            break
+        if (workspace.get("preview") or {}).get("health") == "unhealthy":
+            raise SmokeError(f"Preview startup failed: {workspace}")
+        time.sleep(0.5)
+    else:
+        raise SmokeError(f"Preview startup deadline: {payload}")
+    prefix = urlsplit(base_url).path.rstrip("/")
+    preview = workspace.get("previewUrl", "")
+    if not preview.startswith(prefix + "/workspaces/" + workspace_id + "/"):
+        raise SmokeError("Preview URL escaped its authenticated workspace")
+    path = preview[len(prefix):].rstrip("/")
+    for endpoint in ("/healthz", "/readyz", "/api/bootstrap"):
+        status, payload = request("GET", path + endpoint)
+        if status != 200:
+            raise SmokeError(f"Preview endpoint failed: {endpoint}: {status}: {payload}")
+    status, payload = request("POST", "/api/workspaces/" + workspace_id + "/app/stop", {})
+    if status != 200:
+        raise SmokeError("Preview stop failed")
+    status, payload = request("GET", "/api/workspaces/" + workspace_id)
+    if status != 200 or payload.get("workspace", {}).get("appRunning"):
+        raise SmokeError("Preview did not stop")
+
+
 class NoRedirects(HTTPRedirectHandler):
     def redirect_request(self, *args, **kwargs):
         return None
@@ -93,7 +128,7 @@ class NoRedirects(HTTPRedirectHandler):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", choices=("create", "legacy", "verify"))
+    parser.add_argument("mode", choices=("create", "legacy", "verify", "preview"))
     parser.add_argument("base_url")
     parser.add_argument("identity")
     parser.add_argument("--request-id")
@@ -125,7 +160,10 @@ def main():
                 raise SmokeError("Image proxy returned an unexpected JSON shape")
             return response.status, payload
 
-    if args.mode == "verify":
+    if args.mode == "preview":
+        verify_preview(request, args.identity, args.base_url)
+        print("CW_PREVIEW_LIFECYCLE v=1 status=passed start=passed proxy=passed stop=passed")
+    elif args.mode == "verify":
         verify_workspace(request, args.identity, args.request_id)
     else:
         print(create_workspace(request, args.identity, legacy=args.mode == "legacy"))

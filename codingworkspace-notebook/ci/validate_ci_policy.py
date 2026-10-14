@@ -29,6 +29,7 @@ VALIDATE_STATIC = (ROOT / "codingworkspace-notebook/ci/validate-static.sh").read
 )
 
 EXPECTED_ACTIONS = {
+    "actions/setup-python": "5fda3b95a4ea91299a34e894583c3862153e4b97",
     "actions/checkout": "11d5960a326750d5838078e36cf38b85af677262",
     "actions/upload-artifact": "ea165f8d65b6e75b540449e92b4886f43607fa02",
     "anchore/sbom-action": "e22c389904149dbc22b58101806040fa8d37a610",
