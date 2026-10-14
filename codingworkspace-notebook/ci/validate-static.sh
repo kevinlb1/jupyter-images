@@ -99,6 +99,7 @@ for path in sorted(Path("codingworkspace-notebook").glob("*.py")) + sorted(
 PY
 python3 codingworkspace-notebook/ci/validate_ci_policy.py
 python3 codingworkspace-notebook/ci/test_security_assets.py -v
+python3 codingworkspace-notebook/ci/test_patch_pip_wheel.py -v
 python3 codingworkspace-notebook/ci/test_prepare_git_context.py -v
 python3 codingworkspace-notebook/ci/test_read_pr_build_inputs.py -v
 python3 codingworkspace-notebook/ci/test_select_cw_build_ref.py -v

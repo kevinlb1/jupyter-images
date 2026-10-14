@@ -89,6 +89,13 @@ assert md.version("jupyterhub") == "5.5.1"
 assert md.version("notebook") == "7.6.3"
 assert md.version("jupyterlab") == "4.6.4"
 assert md.version("codingworkspace")
+assert md.version("pip") == "26.2.1+cw1"
+from pip._vendor import msgpack, urllib3
+assert msgpack.__version__ == "1.2.3"
+assert urllib3.__version__ == "2.8.0"
+assert msgpack.unpackb(msgpack.packb({"security": "fixed"})) == {"security": "fixed"}
+assert not importlib.util.find_spec("pip._vendor.pkg_resources")
+
 assert subprocess.check_output(["bwrap", "--version"], text=True).strip() == "bubblewrap 0.12.0"
 assert subprocess.check_output(["npm", "--version"], text=True).strip() == "11.21.0"
 for package in ("nbclassic", "conda-rattler-solver", "py-rattler"):

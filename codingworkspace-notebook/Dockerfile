@@ -58,6 +58,8 @@ COPY codingworkspace-notebook/DEPENDENCY_LAYER.env /tmp/codingworkspace-dependen
 COPY codingworkspace-notebook/security-apt.txt /tmp/codingworkspace-security-apt.txt
 COPY codingworkspace-notebook/npm-security-lock.json /tmp/codingworkspace-npm-security-lock.json
 COPY codingworkspace-notebook/install_security_assets.py /tmp/install_security_assets.py
+COPY codingworkspace-notebook/patch_pip_wheel.py /tmp/patch_pip_wheel.py
+COPY codingworkspace-notebook/pip-security-lock.json /tmp/pip-security-lock.json
 RUN set -eux; \
     expected_opencode_version="${OPENCODE_VERSION}"; \
     expected_dependency_layer_version="${DEPENDENCY_WHEELHOUSE_LAYER_VERSION}"; \
@@ -164,6 +166,8 @@ RUN --mount=type=bind,from=cwbuildersrc,target=/cwbuildersrc \
         --install-script /opt/codingworkspace-starters/GizmoApp/scripts/install_checkout.sh \
         --output-dir /opt/codingworkspace-dependency-wheelhouse \
         --runtime-id "${dependency_probe_id}"; \
+    /opt/conda/bin/python /tmp/patch_pip_wheel.py --wheelhouse /opt/codingworkspace-dependency-wheelhouse --lock /tmp/pip-security-lock.json; \
+    /opt/conda/bin/python /tmp/patch_pip_wheel.py --wheelhouse /opt/codingworkspace-dependency-wheelhouse --ensurepip /opt/conda/lib/python3.13/ensurepip; \
     dependency_runtime_id="$( \
         PYTHONPATH=/opt/codingworkspace-jupyter/runtime \
         /opt/conda/bin/python -c \
@@ -262,6 +266,7 @@ RUN --mount=type=bind,from=cwsrc,target=/cwsrc \
     git -C /tmp/cwrepo archive --format=tar "${build_ref}" \
         | tar -C /tmp/cwbuild -xf -; \
     python -I /tmp/verify_installed_source.py archive --source /tmp/cwbuild; \
+    pip install --no-cache-dir --no-deps /opt/codingworkspace-dependency-wheelhouse/pip-26.2.1+cw1-py3-none-any.whl; \
     pip install --no-cache-dir --no-deps --only-binary=:all: --require-hashes \
         --requirement /tmp/proxy-requirements.txt; \
     pip install --no-cache-dir --no-deps --no-build-isolation /tmp/cwbuild; \
