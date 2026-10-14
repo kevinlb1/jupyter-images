@@ -17,7 +17,8 @@ SHA256 = re.compile(r"[0-9a-f]{64}")
 SAFE_VALUE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+:/~-]{0,255}")
 
 RUNTIME_KEYS = (
-    "BUBBLEWRAP_APT_VERSION",
+    "BUBBLEWRAP_VERSION",
+    "BUBBLEWRAP_SOURCE_SHA256",
     "NODE_VERSION",
     "NODE_LINUX_AMD64_SHA256",
     "NODE_LINUX_ARM64_SHA256",

@@ -483,3 +483,11 @@ hashes and package identities, rejects links/traversal, and runs no install
 hooks. Same-major component replacements retain npm's supported Node runtime.
 Full image scans are retained, including unfixed findings; both the existing
 fixable-CRITICAL gate and an all-available-fixes gate must pass before promotion.
+
+Bubblewrap is built from the verified upstream 0.12.0 release in a separate
+stage, with no setuid support. Ubuntu's 0.9.0-1ubuntu0.3 reverted the fix for
+CVE-2026-87766; treating its empty scanner fix field as safe would miss this
+sandbox-setup vulnerability. The source archive SHA-256 is recorded in
+`RUNTIME_PINS.env`; the runtime image asserts its version and exercises it in
+the existing fresh/retained-home isolation smokes. Compiler packages remain
+outside the runtime image. Source: https://github.com/containers/bubblewrap/security/advisories/GHSA-pxhw-h44j-8pfx

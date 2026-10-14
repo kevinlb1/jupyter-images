@@ -12,6 +12,26 @@ FROM scratch AS source-context-transport
 COPY --from=cwsrc /source.bundle /contexts/cw/source.bundle
 COPY --from=gizmosrc /source.bundle /contexts/gizmo/source.bundle
 
+# Ubuntu reverted its Bubblewrap backport. Build the verified upstream fix
+# separately so compilers/build dependencies never enter the student runtime.
+FROM ${BASE_CONTAINER} AS bubblewrap-build
+USER root
+COPY codingworkspace-notebook/RUNTIME_PINS.env /tmp/runtime-pins.env
+RUN set -eux; \
+    . /tmp/runtime-pins.env; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends build-essential pkg-config libcap-dev meson ninja-build curl xz-utils; \
+    curl --fail --location --retry 5 --output /tmp/bubblewrap.tar.xz \
+        "https://github.com/containers/bubblewrap/releases/download/v${BUBBLEWRAP_VERSION}/bubblewrap-${BUBBLEWRAP_VERSION}.tar.xz"; \
+    printf '%s  %s\n' "${BUBBLEWRAP_SOURCE_SHA256}" /tmp/bubblewrap.tar.xz | sha256sum --check --strict; \
+    mkdir /tmp/bubblewrap; \
+    tar --extract --xz --file /tmp/bubblewrap.tar.xz --directory /tmp/bubblewrap --strip-components=1 --no-same-owner; \
+    /usr/bin/meson setup /tmp/bubblewrap/build /tmp/bubblewrap --buildtype=release \
+        -Dman=disabled -Dselinux=disabled -Dbash_completion=disabled -Dzsh_completion=disabled -Dtests=false; \
+    /usr/bin/meson compile -C /tmp/bubblewrap/build; \
+    test "$(/tmp/bubblewrap/build/bwrap --version)" = "bubblewrap ${BUBBLEWRAP_VERSION}"; \
+    install -D -m 0755 /tmp/bubblewrap/build/bwrap /output/bwrap
+
 FROM ${BASE_CONTAINER} AS codingworkspace-wheelhouse-build
 
 ARG TARGETARCH
@@ -27,6 +47,7 @@ LABEL course="AI100" \
       org.codingworkspace.opencode-version="${OPENCODE_VERSION}"
 
 USER root
+COPY --from=bubblewrap-build --chown=root:root --chmod=0755 /output/bwrap /usr/bin/bwrap
 
 # Every downloaded runtime is version- and digest-pinned. Do not restore the
 # mutable NodeSource setup script or OpenCode installer.
@@ -57,7 +78,7 @@ RUN set -eux; \
         /etc/codingworkspace-dependency-layer.env; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-        "bubblewrap=${BUBBLEWRAP_APT_VERSION}" ca-certificates curl git make xz-utils; \
+        libcap2 ca-certificates curl git make xz-utils; \
     xargs -r apt-get install -y --no-install-recommends --only-upgrade < /tmp/codingworkspace-security-apt.txt; \
     make --version; \
     test "${TARGETARCH}" = "amd64"; \
@@ -79,7 +100,7 @@ RUN set -eux; \
     install --owner=root --group=root --mode=0755 /tmp/opencode-dist/opencode /usr/local/bin/opencode; \
     test "$(node --version)" = "v${NODE_VERSION}"; \
     test "$(opencode --version)" = "${OPENCODE_VERSION}"; \
-    bwrap --version; \
+    test "$(bwrap --version)" = "bubblewrap ${BUBBLEWRAP_VERSION}"; \
     /opt/conda/bin/python /tmp/install_security_assets.py --lock /tmp/codingworkspace-npm-security-lock.json --npm-only; \
     test "$(npm --version)" = "11.21.0"; \
     apt-get clean; \
