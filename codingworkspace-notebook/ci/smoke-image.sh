@@ -683,7 +683,7 @@ with tempfile.TemporaryDirectory() as tmp:
     fixture.mkdir()
     (fixture / "redirect").symlink_to("/oldroot" + str(host))
     result = subprocess.run(["/usr/bin/bwrap", "--unshare-user", "--ro-bind", "/", "/",
-                             "--bind", str(fixture), "/fixture", "--dir", "/fixture/redirect/escaped",
+                             "--bind", str(fixture), str(fixture), "--dir", str(fixture / "redirect/escaped"),
                              "/usr/bin/true"], text=True, capture_output=True, timeout=10)
     assert not (host / "escaped").exists(), "Bubblewrap setup escaped the requested root"
     assert result.returncode != 0, "Malicious setup unexpectedly succeeded"
