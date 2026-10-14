@@ -89,6 +89,21 @@ assert md.version("jupyterhub") == "5.5.1"
 assert md.version("notebook") == "7.6.3"
 assert md.version("jupyterlab") == "4.6.4"
 assert md.version("codingworkspace")
+assert subprocess.check_output(["bwrap", "--version"], text=True).strip() == "bubblewrap 0.12.0"
+assert subprocess.check_output(["npm", "--version"], text=True).strip() == "11.21.0"
+for package in ("nbclassic", "conda-rattler-solver", "py-rattler"):
+    try:
+        md.version(package)
+    except md.PackageNotFoundError:
+        pass
+    else:
+        raise AssertionError("Unused vulnerable dependency remains: " + package)
+# Offline package creation exercises npm with its patched bundled dependencies.
+with tempfile.TemporaryDirectory() as tmp:
+    import json
+    Path(tmp, "package.json").write_text(json.dumps({"name": "cw-security-smoke", "version": "1.0.0"}))
+    subprocess.run(["npm", "pack", "--offline", "--ignore-scripts"], cwd=tmp, check=True, timeout=30)
+
 
 sys.path.insert(0, "/opt/codingworkspace-jupyter/runtime")
 from codingworkspace_jupyter_runtime import (
@@ -657,6 +672,22 @@ assert status["filesystemIsolation"], status
 assert status["processIsolation"], status
 assert not status["networkIsolation"], status
 print(status)
+# CVE-2026-87766 regression: setup must not follow an untrusted symlink
+# through /oldroot to create a directory outside the requested bind root.
+from pathlib import Path
+import subprocess, tempfile
+with tempfile.TemporaryDirectory() as tmp:
+    host = Path(tmp) / "host"
+    fixture = Path(tmp) / "fixture"
+    host.mkdir()
+    fixture.mkdir()
+    (fixture / "redirect").symlink_to("/oldroot" + str(host))
+    result = subprocess.run(["/usr/bin/bwrap", "--unshare-user", "--ro-bind", "/", "/",
+                             "--bind", str(fixture), "/fixture", "--dir", "/fixture/redirect/escaped",
+                             "/usr/bin/true"], text=True, capture_output=True, timeout=10)
+    assert not (host / "escaped").exists(), "Bubblewrap setup escaped the requested root"
+    assert result.returncode != 0, "Malicious setup unexpectedly succeeded"
+print("Bubblewrap oldroot traversal regression passed")
 '
   echo "Bubblewrap user/mount/PID namespace probe passed: $IMAGE"
 }

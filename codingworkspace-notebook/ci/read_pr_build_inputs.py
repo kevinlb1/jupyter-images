@@ -152,6 +152,7 @@ def load(root: Path) -> dict[str, str]:
     values.update(read_assignments(image / "DEPENDENCY_LAYER.env", DEPENDENCY_KEYS))
 
     for key in (
+        "BUBBLEWRAP_SOURCE_SHA256",
         "NODE_LINUX_AMD64_SHA256",
         "NODE_LINUX_ARM64_SHA256",
         "OPENCODE_LINUX_AMD64_BASELINE_SHA256",
