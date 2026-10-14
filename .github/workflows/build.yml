@@ -502,6 +502,13 @@ jobs:
           test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$LOCAL_IMAGE")" \
             = linux/amd64
 
+      - name: Reclaim disposable builder cache before image scans
+        run: |
+          # The pushed digest has been pulled and independently smoke-tested.
+          # Keep that image; release only BuildKit's now-unused build layers.
+          docker buildx prune --all --force
+          df -h / /tmp
+
       - name: Generate SPDX SBOM
         id: sbom
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
@@ -516,9 +523,13 @@ jobs:
       - name: Generate vulnerability report
         id: vulnerability_scan
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        # Read exact registry layers instead of exporting a second full Docker
+        # archive into /tmp. Registry authentication uses the existing login.
+        env:
+          TRIVY_IMAGE_SRC: remote
         with:
           scan-type: image
-          image-ref: ${{ env.LOCAL_IMAGE }}
+          image-ref: ${{ env.ECR_REPOSITORY }}@${{ env.IMAGE_DIGEST }}
           format: json
           output: evidence/${{ matrix.image }}-trivy.json
           version: v0.74.0
@@ -532,9 +543,13 @@ jobs:
       - name: Enforce fixable CRITICAL vulnerability policy
         id: vulnerability_gate
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        # Read exact registry layers instead of exporting a second full Docker
+        # archive into /tmp. Registry authentication uses the existing login.
+        env:
+          TRIVY_IMAGE_SRC: remote
         with:
           scan-type: image
-          image-ref: ${{ env.LOCAL_IMAGE }}
+          image-ref: ${{ env.ECR_REPOSITORY }}@${{ env.IMAGE_DIGEST }}
           format: json
           output: evidence/${{ matrix.image }}-trivy-fixable-critical.json
           version: v0.74.0
