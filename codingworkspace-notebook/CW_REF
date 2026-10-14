@@ -7,4 +7,4 @@
 # do not bump it in an image-source PR. Release by advancing CodingWorkspace
 # `release`, then let the tracker update this full SHA and dispatch the
 # promotion build. Runbook: PIPELINE.md.
-596dff9e1ced16eb13d3cf3c4cf8072e68b4327c
+af885406a09f2bcc84bbd9be7d33871dc37f9b38
