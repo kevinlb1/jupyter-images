@@ -209,6 +209,7 @@ if buffer:
     raise SystemExit("unterminated continuation in proxy-requirements.txt")
 
 expected = {
+    "pypdf": "6.20.1",
     "aiohappyeyeballs": "2.7.1",
     "aiosignal": "1.4.0",
     "attrs": "26.1.0",
