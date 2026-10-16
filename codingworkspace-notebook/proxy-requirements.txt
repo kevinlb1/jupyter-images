@@ -1,6 +1,9 @@
 # Python 3.13 / Linux amd64+arm64 runtime for jupyter-server-proxy 4.5.0.
 # Every allowed wheel digest comes from the corresponding official PyPI release.
 # Keep --no-deps, --only-binary=:all:, and --require-hashes in the Dockerfile.
+# Bounded pod-local PDF attachment extraction; no optional extras required.
+pypdf==6.20.1 \
+    --hash=sha256:aa5a55ddcffdc5e5ab291d5decb23f6383f4e56f8e3263dc39af41fff03885ad
 aiohappyeyeballs==2.7.1 \
     --hash=sha256:9243213661e29250eb41368e5daa826fc017156c3b8a11440826b2e3ed376472
 aiosignal==1.4.0 \
