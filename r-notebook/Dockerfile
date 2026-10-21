@@ -12,7 +12,6 @@ RUN apt-get update && \
     wget \
     unzip \
     tzdata && \
-#    cmake && \
     apt-get clean && \
     apt-get autoremove -y
 
