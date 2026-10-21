@@ -32,7 +32,7 @@ def main():
         venv = root / 'venv'
         run(sys.executable, '-m', 'venv', '--copies', str(venv))
         python = str(venv / 'bin/python')
-        assert '26.2.1+cw1' in run(python, '-m', 'pip', '--version')
+        assert '26.2.1+cw2' in run(python, '-m', 'pip', '--version')
         install = (python, '-m', 'pip', 'install', '--no-index', '--find-links',
                    '/opt/codingworkspace-dependency-wheelhouse')
         run(*install, 'pip==26.2.1', 'Flask==3.1.3', 'openai==2.46.0')

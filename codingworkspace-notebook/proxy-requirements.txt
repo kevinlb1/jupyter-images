@@ -25,9 +25,9 @@ idna==3.19 \
 yarl==1.24.5 \
     --hash=sha256:d46b86567dd4e248c6c159fcbcdcce01e0a5c8a7cd2334a0fff759d0fa075b16 \
     --hash=sha256:ebb0ec7f17803063d5aeb982f3b1bd2b2f4e4fae6751226cbd6ba1fcfe9e63ff
-aiohttp==3.14.3 \
-    --hash=sha256:d7d2deec16eeedf55f2c7cf75b521ea3856a5177e123844f8fd0f114ce252cb5 \
-    --hash=sha256:55bdcc472aafe2de4a253045cc128007a64f1e0264fb675791e132ea5edaa3bd
+aiohttp==3.14.4 \
+    --hash=sha256:6e2eb0f8b03b4f2bd154ed8cf7c1a119a1ad04808c258bf58f90138c83b8c6d5 \
+    --hash=sha256:ff4b366510c733974adb7a4102c094e4a6308e6f369315a4cf14d2d0a619cf82
 jupyter-server-proxy==4.5.0 \
     --hash=sha256:3e3376f8de62aa86623e61d84076feafcaa731b5caf6deb5f0dd5f7a6e74fd24
 simpervisor==1.0.0 \
@@ -49,3 +49,7 @@ tornado==6.5.10 \
     --hash=sha256:69acca6501eed74582b76dbbceee2a91613f54728e3e418346000d7103101676
 urllib3==2.8.0 \
     --hash=sha256:0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3
+
+# GHSA-6q48-6c7w-9gw2: update the global public CA bundle too.
+certifi==2026.10.19 \
+    --hash=sha256:42d35340cc5b9ba78e818ddbff0c5b1c2b779de448a340fd1b989f5fa8670e1b

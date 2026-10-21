@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build pip 26.2.1+cw1 with fixed pure-Python vendored components.
+"""Build pip 26.2.1+cw2 with fixed pure-Python vendored components.
 
 Retain upstream licenses and truthful component SBOMs. Rebuild the wheel RECORD
 and wheelhouse checksums before the image's dependency identity is finalized.
@@ -15,7 +15,7 @@ import re
 import urllib.request
 import zipfile
 
-VERSION = '26.2.1+cw1'
+VERSION = '26.2.1+cw2'
 WHEEL = f'pip-{VERSION}-py3-none-any.whl'
 
 
@@ -133,7 +133,7 @@ def main():
         init.write_text(source)
         return
     entries = json.loads(args.lock.read_text())
-    if [(e['name'], e['version']) for e in entries] != [('pip', '26.2.1'), ('msgpack', '1.2.3'), ('urllib3', '2.8.0')]:
+    if [(e['name'], e['version']) for e in entries] != [('pip', '26.2.1'), ('msgpack', '1.2.3'), ('urllib3', '2.8.0'), ('certifi', '2026.10.19')]:
         raise ValueError('unexpected replacement manifest')
     raw = (wheelhouse / 'pip-26.2.1-py3-none-any.whl').read_bytes()
     if sha(raw) != entries[0]['sha256']:
