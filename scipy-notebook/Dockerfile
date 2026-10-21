@@ -14,8 +14,7 @@ RUN apt-get update && \
     tzdata \
     wkhtmltopdf && \
     apt-get clean && \
-    apt-get autoremove -y && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get autoremove -y
 
 USER ${NB_UID}
 
@@ -29,7 +28,7 @@ USER root
 COPY install-common.sh /tmp/install-common.sh
 RUN chown jovyan:users /tmp/install-common.sh && chmod +x /tmp/install-common.sh
 USER ${NB_UID}
-RUN PIP_NO_CACHE_DIR=1 PIP_CONSTRAINT=/tmp/constraints.txt /bin/bash -x /tmp/install-common.sh
+RUN PIP_CONSTRAINT=/tmp/constraints.txt /bin/bash -x /tmp/install-common.sh
 
 # conda
 USER root
@@ -59,8 +58,7 @@ RUN . /etc/runtime-pins.env && \
     npm install -g \
         "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
         "@google/gemini-cli@${GEMINI_CLI_VERSION}" \
-        "@zed-industries/codex-acp@${CODEX_ACP_VERSION}" && \
-    npm cache clean --force
+        "@zed-industries/codex-acp@${CODEX_ACP_VERSION}"
 
 # pip - single resolution against the shared + image requirements, governed
 # by the shared constraints (build-time only, set inline)
