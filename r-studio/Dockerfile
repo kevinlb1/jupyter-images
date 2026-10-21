@@ -5,7 +5,7 @@ FROM rocker/tidyverse:4.6.1
 # ---- System dependencies for JupyterHub integration ----
 # We need Python + pip to install jupyterhub-singleuser and jupyter-rsession-proxy,
 # which is the bridge that lets JupyterHub spawn and proxy to RStudio Server.
-RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get upgrade -y --with-new-pkgs && apt-get install -y --no-install-recommends \
         python3 \
         python3-pip \
         python3-venv \
