@@ -217,7 +217,7 @@ expected = {
     "multidict": "6.9.1",
     "propcache": "0.5.2",
     "idna": "3.19",
-    "yarl": "1.24.5",
+    "yarl": "1.25.1",
     "aiohttp": "3.14.4",
     "certifi": "2026.10.19",
     "jupyter-server-proxy": "4.5.0",
