@@ -16,8 +16,6 @@ RUN apt-get update && \
     apt-get clean && \
     apt-get autoremove -y
 
-USER ${NB_UID}
-
 # Copy and run common install script
 USER root
 COPY install-common.sh /tmp/install-common.sh
