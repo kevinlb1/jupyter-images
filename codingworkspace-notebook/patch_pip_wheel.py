@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build pip 26.2.1+cw2 with fixed pure-Python vendored components.
+"""Build pip 26.2.1+cw3 with fixed pure-Python vendored components.
 
 Retain upstream licenses and truthful component SBOMs. Rebuild the wheel RECORD
 and wheelhouse checksums before the image's dependency identity is finalized.
@@ -15,7 +15,7 @@ import re
 import urllib.request
 import zipfile
 
-VERSION = '26.2.1+cw2'
+VERSION = '26.2.1+cw3'
 WHEEL = f'pip-{VERSION}-py3-none-any.whl'
 
 
@@ -50,6 +50,14 @@ def patched_wheel(original, replacements):
         selected = {p: b for p, b in content.items() if p.startswith(name + '/') and not p.endswith(('.so', '.pyd'))}
         if name + '/__init__.py' not in selected:
             raise ValueError('replacement package is absent')
+        if name == 'certifi':
+            # Upstream certifi addresses its package by name. Match pip's
+            # vendoring namespace so isolated ensurepip can load CA resources
+            # without a separately installed global certifi package.
+            core = selected.get('certifi/core.py', b'')
+            if core.count(b'"certifi"') != 4:
+                raise ValueError('unexpected certifi resource declarations')
+            selected['certifi/core.py'] = core.replace(b'"certifi"', b'"pip._vendor.certifi"')
         for path, data in selected.items():
             files['pip/_vendor/' + path] = data
         for path, data in content.items():

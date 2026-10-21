@@ -266,7 +266,7 @@ RUN --mount=type=bind,from=cwsrc,target=/cwsrc \
     git -C /tmp/cwrepo archive --format=tar "${build_ref}" \
         | tar -C /tmp/cwbuild -xf -; \
     python -I /tmp/verify_installed_source.py archive --source /tmp/cwbuild; \
-    pip install --no-cache-dir --no-deps /opt/codingworkspace-dependency-wheelhouse/pip-26.2.1+cw2-py3-none-any.whl; \
+    pip install --no-cache-dir --no-deps /opt/codingworkspace-dependency-wheelhouse/pip-26.2.1+cw3-py3-none-any.whl; \
     pip install --no-cache-dir --no-deps --only-binary=:all: --require-hashes \
         --requirement /tmp/proxy-requirements.txt; \
     pip install --no-cache-dir --no-deps --no-build-isolation /tmp/cwbuild; \
