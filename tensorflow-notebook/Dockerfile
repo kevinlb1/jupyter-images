@@ -24,6 +24,12 @@ USER ${NB_UID}
 RUN /bin/bash -x /tmp/install-common.sh
 
 # pip
+# CPU-only PyTorch: cluster nodes have no GPU
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
+    torch \
+    torchvision \
+    torchaudio
+
 RUN pip install --no-cache-dir \
     jupyter \
     opencv-python-headless \
@@ -44,7 +50,7 @@ COPY tensorflow-notebook/nbgrader_config.py /etc/jupyter/nbgrader_config.py
 COPY tensorflow-notebook/patch_formgrader.py /tmp/patch_formgrader.py
 RUN chmod 644 /etc/jupyter/nbgrader_config.py && \
     chmod 755 /tmp/patch_formgrader.py
-    
+
 # Run the patch
 USER ${NB_UID}
 RUN python3 /tmp/patch_formgrader.py
