@@ -492,8 +492,8 @@ sandbox-setup vulnerability. The source archive SHA-256 is recorded in
 the existing fresh/retained-home isolation smokes. Compiler packages remain
 outside the runtime image. Source: https://github.com/containers/bubblewrap/security/advisories/GHSA-pxhw-h44j-8pfx
 
-The current upstream pip 26.2.1 still bundles vulnerable msgpack/urllib3. The
-image builds `26.2.1+cw1` from hash-verified wheels, replaces both pure-Python
+The current upstream pip 26.2.1 still bundles vulnerable msgpack/urllib3/certifi. The
+image builds `26.2.1+cw2` from hash-verified wheels, replaces all three pure-Python
 vendored libraries, and removes the unused legacy pkg_resources metadata
 backend. This image-only wheel requires Python >=3.13 and uses importlib.metadata.
 Its RECORD, component SBOM and provenance are regenerated truthfully. The same
@@ -501,3 +501,9 @@ wheel is used by base pip, ensurepip, the offline wheelhouse and installed app
 dependencies; the finalized dependency identity covers the patched wheel bytes.
 No scanner exclusions are used. Canonical source pins upstream pip 26.2.1;
 PEP 440 permits the reviewed local-version wheel for that exact public version.
+
+The October 20, 2026 security refresh pins aiohttp 3.14.4 and certifi
+2026.10.19, including pip's vendored certificate bundle and ensurepip wheel.
+The wheel RECORD, vendor manifest, and SBOM identify the replaced bytes;
+no scanner exception is used for the revoked certificate authorities
+(GHSA-6q48-6c7w-9gw2). Image smoke checks verify both certifi copies.

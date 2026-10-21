@@ -218,7 +218,8 @@ expected = {
     "propcache": "0.5.2",
     "idna": "3.19",
     "yarl": "1.24.5",
-    "aiohttp": "3.14.3",
+    "aiohttp": "3.14.4",
+    "certifi": "2026.10.19",
     "jupyter-server-proxy": "4.5.0",
     "simpervisor": "1.0.0",
     # Security override of the base image copy (CVE-2026-102268), not a proxy
