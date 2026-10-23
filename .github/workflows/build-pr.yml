@@ -62,9 +62,12 @@ jobs:
       # release. This replaces the hardcoded-SHA assertion removed in #19,
       # which could not survive the tracker moving the pin: scoping the check
       # to base-vs-head keeps the guarantee without a value that goes stale.
+      # The base is the synthetic merge commit's first parent, the main commit
+      # GitHub merged onto. github.event.pull_request.base.sha lags main, so a
+      # tracker bump landing after it read as a PR-borne pin change (#55).
       - name: Refuse a pull-request change to the tracker-owned CW_REF
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_SHA: ${{ format('{0}^1', github.sha) }}
         run: |
           set -euo pipefail
           pin=codingworkspace-notebook/CW_REF
@@ -92,7 +95,8 @@ jobs:
       - name: Select changed images
         id: select
         env:
-          BEFORE_SHA: ${{ github.event.pull_request.base.sha }}
+          # Same base as the CW_REF guard: only what this pull request changes.
+          BEFORE_SHA: ${{ format('{0}^1', github.sha) }}
           CURRENT_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail

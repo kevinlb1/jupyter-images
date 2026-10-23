@@ -94,7 +94,7 @@ candidate_build = step(
 )
 
 for required in (
-    "github.event.pull_request.base.sha",
+    "format('{0}^1', github.sha)",
     "--format github-output",
     "ordinary_images",
     "codingworkspace_images",
@@ -168,7 +168,7 @@ if "github.event_name == 'pull_request'" not in pr_selection:
 # constant that goes stale the moment `release` advances.
 pr_pin_guard = step(PR_BUILD, "Refuse a pull-request change to the tracker-owned CW_REF")
 for required in (
-    "BASE_SHA: ${{ github.event.pull_request.base.sha }}",
+    "BASE_SHA: ${{ format('{0}^1', github.sha) }}",
     'git show "$BASE_SHA:$pin"',
     "read_pin.py",
     'if [ "$base_ref" != "$head_ref" ]; then',
@@ -176,6 +176,26 @@ for required in (
 ):
     if required not in pr_pin_guard:
         raise SystemExit(f"the pull-request CW_REF guard is missing {required}")
+# github.event.pull_request.base.sha is the base recorded on the pull request,
+# not the commit GitHub merged it onto, and it lags main. Diffing from it
+# attributed every later main commit to the PR: each tracker CW_REF bump read
+# as a PR-borne pin change and failed the guard above, and changed-image
+# selection queued images the PR never touched (#55). Pull-request diffs start
+# from the synthetic merge commit's first parent instead.
+if "BEFORE_SHA: ${{ format('{0}^1', github.sha) }}" not in step(
+    PR_BUILD, "Select changed images"
+):
+    raise SystemExit(
+        "pull-request image selection must diff from the merge commit's first parent"
+    )
+for path, text in (
+    (".github/workflows/build.yml", BUILD),
+    (".github/workflows/build-pr.yml", PR_BUILD),
+):
+    if re.search(r"(?m)^[^#\n]*github\.event\.pull_request\.base\.sha", text):
+        raise SystemExit(
+            f"{path} diffs from github.event.pull_request.base.sha, which lags main"
+        )
 if re.search(r"(?m)^\s*test\s+\"\$CW_REF\"\s*=\s*[0-9a-f]{40}", VALIDATE_STATIC):
     raise SystemExit(
         "validate-static.sh must not assert a constant CW_REF; the tracker owns that pin "

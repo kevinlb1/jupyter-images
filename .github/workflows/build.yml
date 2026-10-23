@@ -62,9 +62,11 @@ jobs:
       - name: Select images
         id: select
         env:
-          # pull_request has no event.before. Use its actual base commit rather
-          # than falling back to a parent of GitHub's synthetic merge commit.
-          BEFORE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          # pull_request has no event.before. Diff from the synthetic merge
+          # commit's first parent, the main commit GitHub merged onto:
+          # github.event.pull_request.base.sha lags main, so diffing from it
+          # selects images that only main changed since (#55).
+          BEFORE_SHA: ${{ github.event_name == 'pull_request' && format('{0}^1', github.sha) || github.event.before }}
           CURRENT_SHA: ${{ github.sha }}
           DISPATCH_SCOPE: ${{ inputs.scope || 'changed' }}
         run: |
