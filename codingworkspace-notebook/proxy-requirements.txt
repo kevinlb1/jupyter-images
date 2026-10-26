@@ -53,3 +53,10 @@ urllib3==2.8.0 \
 # GHSA-6q48-6c7w-9gw2: update the global public CA bundle too.
 certifi==2026.10.19 \
     --hash=sha256:42d35340cc5b9ba78e818ddbff0c5b1c2b779de448a340fd1b989f5fa8670e1b
+
+# GHSA-9v8h-qqgm-4m35 (Brotli decoder out-of-bounds write): security override of
+# the base image's conda Brotli 1.2.0, not a proxy dependency. Remove together
+# with its validate-static.sh entry and Dockerfile assert once the base ships 1.2.1+.
+brotli==1.2.1 \
+    --hash=sha256:264fd5b200f6f6170cb551a4b9fcaabf8aa846ddaefe72db4d5f49f9d3743df9 \
+    --hash=sha256:b5b458950312830913f837e179ce9221000ab7a20b4e42d7b48c1fcd79140de1

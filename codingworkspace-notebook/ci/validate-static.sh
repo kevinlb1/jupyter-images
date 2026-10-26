@@ -232,6 +232,9 @@ expected = {
     "jupyterlab": "4.6.4",
     "jupyter-server": "2.21.1",
     "Mako": "1.4.3",
+    # Security override of the base image copy (GHSA-9v8h-qqgm-4m35), not a
+    # proxy dependency; see the comment in proxy-requirements.txt. Remove together.
+    "brotli": "1.2.1",
 }
 seen: dict[str, str] = {}
 for requirement in logical:
