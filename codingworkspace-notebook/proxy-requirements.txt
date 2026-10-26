@@ -2,8 +2,8 @@
 # Every allowed wheel digest comes from the corresponding official PyPI release.
 # Keep --no-deps, --only-binary=:all:, and --require-hashes in the Dockerfile.
 # Bounded pod-local PDF attachment extraction; no optional extras required.
-pypdf==6.20.1 \
-    --hash=sha256:aa5a55ddcffdc5e5ab291d5decb23f6383f4e56f8e3263dc39af41fff03885ad
+pypdf==6.21.2 \
+    --hash=sha256:1d44d1a3a200f25062adff0085b02040e4646431ac2ccac22e42679e91466084
 aiohappyeyeballs==2.7.1 \
     --hash=sha256:9243213661e29250eb41368e5daa826fc017156c3b8a11440826b2e3ed376472
 aiosignal==1.4.0 \
@@ -60,3 +60,15 @@ certifi==2026.10.19 \
 brotli==1.2.1 \
     --hash=sha256:264fd5b200f6f6170cb551a4b9fcaabf8aa846ddaefe72db4d5f49f9d3743df9 \
     --hash=sha256:b5b458950312830913f837e179ce9221000ab7a20b4e42d7b48c1fcd79140de1
+
+# October 2026 advisories against the base image's conda copies (nbconvert
+# CVE-2026-114140; filelock CVE-2026-112940/112907/112913; setuptools
+# GHSA-xmj3-9gf7-h52w), rejected by the available-fix gate. Security overrides,
+# not proxy dependencies. Remove together with their validate-static.sh entries
+# and Dockerfile asserts once the base ships these versions or later.
+nbconvert==7.17.2 \
+    --hash=sha256:6a143c11c00bf831604da4b1be4347d36ea52367057eb920135d69bc2862fed2
+filelock==4.2.1 \
+    --hash=sha256:7be2662e9e826b9bba28afc0f843a123280d799a2ea44bb5d35ccec67905ae44
+setuptools==84.1.0 \
+    --hash=sha256:5231689c6ac8156cd155cfb98c3fd6fb252c3e7e9bd3d78b64d3c55f132624c9

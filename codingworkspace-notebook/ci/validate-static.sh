@@ -209,7 +209,7 @@ if buffer:
     raise SystemExit("unterminated continuation in proxy-requirements.txt")
 
 expected = {
-    "pypdf": "6.20.1",
+    "pypdf": "6.21.2",
     "aiohappyeyeballs": "2.7.1",
     "aiosignal": "1.4.0",
     "attrs": "26.1.0",
@@ -235,6 +235,11 @@ expected = {
     # Security override of the base image copy (GHSA-9v8h-qqgm-4m35), not a
     # proxy dependency; see the comment in proxy-requirements.txt. Remove together.
     "brotli": "1.2.1",
+    # October 2026 security overrides of base image copies, not proxy
+    # dependencies; see the comment in proxy-requirements.txt. Remove together.
+    "nbconvert": "7.17.2",
+    "filelock": "4.2.1",
+    "setuptools": "84.1.0",
 }
 seen: dict[str, str] = {}
 for requirement in logical:
