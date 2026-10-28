@@ -499,6 +499,9 @@ backend. This image-only wheel requires Python >=3.13 and uses importlib.metadat
 Its RECORD, component SBOM and provenance are regenerated truthfully. The same
 wheel is used by base pip, ensurepip, the offline wheelhouse and installed app
 dependencies; the finalized dependency identity covers the patched wheel bytes.
+The October 28 refresh also pins the base's separate standalone msgpack to
+1.2.3 for CVE-2026-114613. Fixing pip's vendored copy does not update this
+Conda-inherited package. Image smoke checks exercise both copies.
 No scanner exclusions are used. Canonical source pins upstream pip 26.2.1;
 PEP 440 permits the reviewed local-version wheel for that exact public version.
 

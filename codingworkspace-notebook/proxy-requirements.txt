@@ -72,3 +72,8 @@ filelock==4.2.1 \
     --hash=sha256:7be2662e9e826b9bba28afc0f843a123280d799a2ea44bb5d35ccec67905ae44
 setuptools==84.1.0 \
     --hash=sha256:5231689c6ac8156cd155cfb98c3fd6fb252c3e7e9bd3d78b64d3c55f132624c9
+
+# CVE-2026-114613: the base's standalone msgpack is separate from pip's
+# patched vendored copy. Use the same reviewed CPython 3.13 amd64 wheel.
+msgpack==1.2.3 \
+    --hash=sha256:07c9733089d1b176c3dd2f7fa268452f9d5d784d076473499d754a58e8d1fbbb

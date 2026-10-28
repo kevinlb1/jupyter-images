@@ -240,6 +240,7 @@ expected = {
     "nbconvert": "7.17.2",
     "filelock": "4.2.1",
     "setuptools": "84.1.0",
+    "msgpack": "1.2.3",
 }
 seen: dict[str, str] = {}
 for requirement in logical:
