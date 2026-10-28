@@ -1,32 +1,23 @@
 #!/usr/bin/env bash
 # Post-build smoke test for scipy-notebook. Run as:
 #   scipy-notebook/ci/smoke.sh IMAGE_REF
+# The checks shared by all notebook images (JupyterHub pin, nbgrader,
+# extensions) are in ci/smoke-notebook.sh; only scipy-notebook's own checks are here.
 set -euo pipefail
 
-IMAGE="${1:?usage: smoke.sh IMAGE_REF}"
-
-docker run --rm -i "$IMAGE" bash -s <<'INNER'
-set -euo pipefail
-
-fail() {
-  echo "FAIL: $1" >&2
-  exit 1
-}
-
-# jupyter-ai and jupyter-server-documents (its transitive extension) must
-# never be present in this image.
-pip show jupyter-server-documents >/dev/null 2>&1 && fail "jupyter-server-documents present"
-pip show jupyter-ai >/dev/null 2>&1 && fail "jupyter-ai present"
-
-# jupyter labextension list marks a broken/incompatible extension with a
-# red " X " marker. The color codes wrap the X in ANSI escapes, so strip
-# them before matching or the marker never matches literally.
-labext_output=$(jupyter labextension list 2>&1) || fail "jupyter labextension list crashed"
-clean_labext=$(printf '%s\n' "$labext_output" | sed -E 's/\x1b\[[0-9;]*m//g')
-printf '%s\n' "$clean_labext" | grep -qE " X( |$)" && fail "incompatible labextension detected"
-
-server_ext_output=$(jupyter server extension list 2>&1) || fail "jupyter server extension list crashed"
-printf '%s\n' "$server_ext_output" | grep -qi "validation failed" && fail "server extension validation failed"
-
-echo OK
-INNER
+"$(dirname "$0")/../../ci/smoke-notebook.sh" "${1:?usage: smoke.sh IMAGE_REF}" <<'CHECKS'
+# The core scientific stack and the image's own additions must import.
+python -c 'import numpy, scipy, pandas, matplotlib, sklearn' 2>/dev/null \
+  || fail "core scientific packages fail to import"
+python -c 'import osgeo.gdal, geopandas, altair, weasyprint, pypdf, uncertainties, vl_convert' 2>/dev/null \
+  || fail "image packages fail to import"
+# Render a PDF, not just import: WeasyPrint needs the Pango system libraries.
+python -c '
+import io, pypdf, weasyprint
+pdf = weasyprint.HTML(string="<h1>smoke</h1><p>test</p>").write_pdf()
+assert len(pypdf.PdfReader(io.BytesIO(pdf)).pages) == 1
+' 2>/dev/null || fail "WeasyPrint/pypdf can't make and read a PDF"
+# npm must be the pinned one, not the older npm bundled with conda nodejs.
+( . /etc/runtime-pins.env && [ "$(npm --version)" = "$NPM_VERSION" ] ) \
+  || fail "npm is not NPM_VERSION from RUNTIME_PINS.env"
+CHECKS

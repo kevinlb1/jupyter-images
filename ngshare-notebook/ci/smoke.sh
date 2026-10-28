@@ -5,6 +5,16 @@ set -euo pipefail
 
 IMAGE="${1:?usage: smoke.sh IMAGE_REF}"
 
+# ngshare authenticates through jupyterhub's client library, pinned for
+# every image in JUPYTERHUB_PINS.env.
+. "$(dirname "$0")/../../JUPYTERHUB_PINS.env"
+hub_version=$(docker run --rm --entrypoint python3 "$IMAGE" -c \
+  'import importlib.metadata as m; print(m.version("jupyterhub"))')
+if [ "$hub_version" != "$JUPYTERHUB_VERSION" ]; then
+  echo "FAIL: jupyterhub $hub_version, expected $JUPYTERHUB_VERSION (JUPYTERHUB_PINS.env)" >&2
+  exit 1
+fi
+
 # No curl in the python:3.12-slim-bookworm base - everything here uses the
 # stdlib instead. Script piped to `python3 -` via stdin rather than -c, to
 # stay out of nested-quoting hell.

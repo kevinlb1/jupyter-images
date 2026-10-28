@@ -80,15 +80,16 @@ RUN apt-get update && \
 # in the Docker Hub image, as unpinned transitives of a loose setup.py
 # floor. requests is a transitive dep of jupyterhub, not of ngshare's own
 # setup.py (which lists only SQLAlchemy/alembic/tornado/jupyterhub).
-# Regenerate against this exact base image with:
-#   docker run --rm -v "$PWD":/work -w /work \
-#     python:3.12-slim-bookworm@sha256:392307d22300de8b5986851a12d9176dfc0fc073e65bf6523ebd7dcbeb23564e \
-#     bash -c 'pip install --quiet pip-tools && \
-#       pip-compile --no-header --no-annotate --strip-extras \
-#         -o ngshare-notebook/constraints.txt ngshare-notebook/requirements.txt'
+# Regenerate against the pinned base with: ci/regen-constraints.sh ngshare
 COPY ngshare-notebook/requirements.txt /tmp/requirements.txt
 COPY ngshare-notebook/constraints.txt /tmp/constraints.txt
-RUN PIP_CONSTRAINT=/tmp/constraints.txt pip install --no-cache-dir -r /tmp/requirements.txt
+# jupyterhub (ngshare's hub auth client) is pinned once for every image in
+# JUPYTERHUB_PINS.env (repo root) instead of in requirements.txt.
+COPY JUPYTERHUB_PINS.env /tmp/jupyterhub-pins.env
+RUN . /tmp/jupyterhub-pins.env && \
+    : "${JUPYTERHUB_VERSION:?missing in JUPYTERHUB_PINS.env}" && \
+    PIP_CONSTRAINT=/tmp/constraints.txt pip install --no-cache-dir \
+        -r /tmp/requirements.txt "jupyterhub==${JUPYTERHUB_VERSION}"
 
 # See header comment: vendored, not cloned, and why.
 COPY ngshare-notebook/vendor /ngshare

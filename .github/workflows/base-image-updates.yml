@@ -1,0 +1,378 @@
+name: Base image updates
+
+# Watches the digest-pinned bases of the ordinary images on quay.io and
+# Docker Hub (docker-stacks hub-X.Y.Z for julia/r/scipy/tensorflow/geophysics,
+# rocker/tidyverse for r-studio, python
+# 3.12-slim-bookworm for ngshare; see ci/check_base_updates.py) and, when one
+# has a newer release in the same major version or its tag now points to a
+# new digest:
+#   1. updates the pins and regenerates the constraints file they govern
+#      (ci/regen-constraints.sh), commits to automation/base-image-updates,
+#   2. builds and smoke-tests every image that commit affects (as decided by
+#      ci/select_images.py), here, with no registry or AWS credentials, so
+#      nothing is pushed to ECR; notebook builds first check that the
+#      constraints downgrade nothing in their base (ci/check_constraints.py),
+#      and user images are spawned on the deployed JupyterHub version
+#      (ci/hub-compat.sh),
+#   3. opens (or updates) one pull request with the results.
+# A newer major (or Python minor) is never applied: it is listed with manual
+# upgrade steps in the PR body and in a "Major base image upgrade available"
+# issue, which closes itself once nothing is held back.
+#
+# The branch and the pull request are created with GITHUB_TOKEN. By GitHub's
+# design that starts no other workflow, so build.yml does not publish
+# candidate images from the branch and build-pr.yml does not run on the PR;
+# the build job below is the PR's test. Images are published only by the
+# normal build.yml run once a maintainer merges the PR into main.
+#
+# The automation branch is force-pushed on every run: don't commit to it.
+# Requires "Allow GitHub Actions to create and approve pull requests"
+# (Settings > Actions > General).
+
+on:
+  schedule:
+    # Weekdays 14:17 UTC (07:17 Pacific in summer, 06:17 in winter).
+    - cron: "17 14 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: base-image-updates
+  cancel-in-progress: false
+
+env:
+  UPDATE_BRANCH: automation/base-image-updates
+  # Reviewers and assignees of the update PR, and assignees of the failure
+  # issue. Override with the BASE_IMAGE_OWNERS
+  # repository variable (comma-separated GitHub usernames).
+  OWNERS: ${{ vars.BASE_IMAGE_OWNERS || 'jlongland,xcompass,ryokonorden' }}
+
+jobs:
+  check:
+    name: Check for newer base images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      # '[]' when nothing changed (the push step is skipped, and a skipped
+      # step's outputs are empty strings) or when the branch already
+      # carries exactly these pins (an unmerged PR from an earlier run):
+      # nothing to rebuild or update.
+      images: ${{ steps.push.outputs.images || '[]' }}
+      build_images: ${{ steps.push.outputs.build_images || '[]' }}
+      sha: ${{ steps.push.outputs.sha }}
+      held: ${{ steps.check.outputs.held }}
+      major_report: ${{ steps.check.outputs.major_report }}
+    steps:
+      # No checkout leaves a token in .git/config: the regeneration and
+      # check steps mount the repository into third-party base images.
+      - name: Checkout main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Check registries and update pins
+        id: check
+        run: |
+          set -euo pipefail
+          python3 ci/check_base_updates.py --apply \
+            --summary "$RUNNER_TEMP/summary.md" \
+            --major-report "$RUNNER_TEMP/major.md" \
+            --format github-output >> "$GITHUB_OUTPUT"
+          {
+            echo "major_report<<EOF_MAJOR_REPORT"
+            cat "$RUNNER_TEMP/major.md"
+            echo "EOF_MAJOR_REPORT"
+          } >> "$GITHUB_OUTPUT"
+          cat "$RUNNER_TEMP/summary.md" "$RUNNER_TEMP/major.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Regenerate constraints for the new bases
+        if: steps.check.outputs.images != '[]'
+        env:
+          IMAGES: ${{ steps.check.outputs.images }}
+        run: |
+          set -euo pipefail
+          # The root constraints are compiled in the scipy-notebook base and
+          # govern all five notebook images; ngshare has its own.
+          if jq -e 'any(.[]; IN("geophysics-notebook","julia-notebook","r-notebook","scipy-notebook","tensorflow-notebook"))' <<<"$IMAGES" >/dev/null; then
+            ci/regen-constraints.sh notebooks
+          fi
+          if jq -e 'index("ngshare-notebook")' <<<"$IMAGES" >/dev/null; then
+            ci/regen-constraints.sh ngshare
+          fi
+          if jq -e 'index("r-studio")' <<<"$IMAGES" >/dev/null; then
+            ci/regen-constraints.sh r-studio
+          fi
+          {
+            echo
+            echo "Constraint changes (also picks up newer PyPI releases):"
+            echo
+            echo '```diff'
+            git diff -U0 -- constraints.txt ngshare-notebook/constraints.txt r-studio/constraints.txt \
+              | grep -E '^[-+][A-Za-z0-9]' || echo "(none)"
+            echo '```'
+          } >> "$RUNNER_TEMP/summary.md"
+
+      - name: Push the update branch
+        id: push
+        if: steps.check.outputs.images != '[]'
+        env:
+          IMAGES: ${{ steps.check.outputs.images }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$UPDATE_BRANCH"
+          git commit -a -m "Update base images: $(jq -r 'join(", ")' <<<"$IMAGES")" \
+            -m "$(cat "$RUNNER_TEMP/summary.md")"
+          if git fetch --quiet origin "$UPDATE_BRANCH" 2>/dev/null \
+              && git diff --quiet HEAD FETCH_HEAD; then
+            echo "$UPDATE_BRANCH already has these pins; nothing to do."
+            printf 'images=[]\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # The write token is used for this one command only, never stored.
+          auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          git -c http.extraheader="AUTHORIZATION: basic $auth" \
+            push --force origin "HEAD:refs/heads/$UPDATE_BRANCH"
+          printf 'images=%s\n' "$IMAGES" >> "$GITHUB_OUTPUT"
+          printf 'sha=%s\n' "$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          # Everything the commit affects, e.g. all notebook images when
+          # constraints.txt changed, even if only one base moved.
+          python3 ci/select_images.py --before "$GITHUB_SHA" --current HEAD \
+            --format github-output | sed 's/^ordinary_images=/build_images=/' >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build ${{ matrix.image }} (no push)
+    needs: check
+    if: needs.check.outputs.images != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.check.outputs.build_images) }}
+    steps:
+      - name: Checkout the update commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.check.outputs.sha }}
+          persist-credentials: false
+
+      # Same cleanup as build.yml/build-pr.yml: the hub-6.1.1 notebook bases
+      # don't fit in a stock runner's free disk, and hub-compat.sh also
+      # pulls the hub image.
+      - name: Free runner disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          docker image prune -af
+          df -h /
+
+      - name: Check constraints against the base
+        env:
+          IMAGE_NAME: ${{ matrix.image }}
+        run: |
+          set -euo pipefail
+          # Only images that install against the root constraints.txt.
+          if grep -qE '^COPY( | .* )constraints\.txt( |$)' "$IMAGE_NAME/Dockerfile"; then
+            base=$(sed -n 's/^ARG BASE_CONTAINER=//p' "$IMAGE_NAME/Dockerfile" | head -1)
+            docker run --rm --entrypoint python -v "$PWD:/repo:ro" "$base" \
+              -I /repo/ci/check_constraints.py /repo/constraints.txt
+          else
+            echo "$IMAGE_NAME doesn't use the root constraints.txt."
+          fi
+
+      - name: Build image (local only)
+        env:
+          IMAGE_NAME: ${{ matrix.image }}
+        run: |
+          set -euo pipefail
+          docker buildx build --load -f "$IMAGE_NAME/Dockerfile" \
+            -t "local/$IMAGE_NAME:candidate" .
+
+      - name: Run smoke test
+        env:
+          IMAGE_NAME: ${{ matrix.image }}
+        run: |
+          set -euo pipefail
+          if [ -x "$IMAGE_NAME/ci/smoke.sh" ]; then
+            "$IMAGE_NAME/ci/smoke.sh" "local/$IMAGE_NAME:candidate"
+          else
+            echo "No $IMAGE_NAME/ci/smoke.sh; build only."
+          fi
+
+      - name: Run against the deployed JupyterHub version
+        env:
+          IMAGE_NAME: ${{ matrix.image }}
+        run: |
+          set -euo pipefail
+          # User servers only: the notebook images and r-studio.
+          if grep -q 'jupyterhub-singleuser' "$IMAGE_NAME/Dockerfile"; then
+            ci/hub-compat.sh "$IMAGE_NAME" "local/$IMAGE_NAME:candidate"
+          else
+            echo "$IMAGE_NAME is not a user server image."
+          fi
+
+  pull-request:
+    name: Open or update the pull request
+    needs: [check, build]
+    if: always() && needs.check.outputs.images != '[]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: read
+    steps:
+      - name: Checkout the update commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.check.outputs.sha }}
+          persist-credentials: false
+
+      - name: Write PR body
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          MAJOR_REPORT: ${{ needs.check.outputs.major_report }}
+        run: |
+          set -euo pipefail
+          {
+            echo "Automated base image update from [this run]($RUN_URL)."
+            echo
+            git log -1 --format=%b
+            echo
+            if [ -n "$MAJOR_REPORT" ]; then
+              printf '%s\n\n' "$MAJOR_REPORT"
+            fi
+            echo "### Build and smoke test (local to the runner, nothing pushed to ECR)"
+            echo
+            echo "| Job | Result |"
+            echo "|---|---|"
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs" \
+              --paginate --jq '.jobs[] | select(.name | startswith("Build ")) | "| \(.name) | \(.conclusion) |"'
+            echo
+            echo "Merging publishes the images through the normal build.yml run on main."
+            echo "This branch is force-pushed by the next run; don't commit to it."
+            echo
+            echo "**What to do with this PR:** see [When you get an update PR]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/main/README.md#when-you-get-an-update-pr) in the README."
+          } > "$RUNNER_TEMP/body.md"
+          cat "$RUNNER_TEMP/body.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create or update the PR
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          number=$(gh pr list --head "$UPDATE_BRANCH" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh pr edit "$number" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh pr create --base main --head "$UPDATE_BRANCH" \
+              --title "Update base images" --body-file "$RUNNER_TEMP/body.md"
+            number=$(gh pr list --head "$UPDATE_BRANCH" --state open --json number --jq '.[0].number')
+          fi
+          printf 'number=%s\n' "$number" >> "$GITHUB_OUTPUT"
+
+      # Separate and non-fatal: an owner who can't be added (no repo access,
+      # renamed account) must not stop the PR from being opened. Re-adding
+      # an existing reviewer or assignee is a no-op.
+      - name: Request review from and assign the owners
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          set -uo pipefail
+          for owner in ${OWNERS//,/ }; do
+            gh pr edit "$NUMBER" --add-reviewer "$owner" \
+              || echo "::warning::could not request review from $owner"
+            gh pr edit "$NUMBER" --add-assignee "$owner" \
+              || echo "::warning::could not assign $owner"
+          done
+
+  # A major-only run changes no files, so there is no PR to carry the notice:
+  # one issue holds it instead, edited in place (no comment per run).
+  major-notice:
+    name: Open, update or close the major upgrade notice
+    needs: check
+    if: always() && needs.check.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Report held-back major upgrades as an issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          HELD: ${{ needs.check.outputs.held }}
+          MAJOR_REPORT: ${{ needs.check.outputs.major_report }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          title="Major base image upgrade available"
+          number=$(gh issue list --state open --search "in:title \"$title\"" \
+            --json number,title --jq "map(select(.title == \"$title\")) | .[0].number // empty")
+          if [ "$HELD" = "[]" ]; then
+            if [ -n "$number" ]; then
+              gh issue close "$number" --comment "No major upgrade pending any more: $RUN_URL"
+            fi
+            exit 0
+          fi
+          guide="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/main/README.md#when-you-get-a-major-upgrade-notice"
+          body=$(printf '%s\n\nLast checked in [this run](%s). **What to do:** see [When you get a major upgrade notice](%s) in the README.\n\nThis issue closes itself once the upgrade is merged.' \
+            "$MAJOR_REPORT" "$RUN_URL" "$guide")
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --body "$body"
+          else
+            url=$(gh issue create --title "$title" --body "$body")
+            number="${url##*/}"
+          fi
+          for owner in ${OWNERS//,/ }; do
+            gh issue edit "$number" --add-assignee "$owner" \
+              || echo "::warning::could not assign $owner"
+          done
+
+  alert:
+    name: Open or close the failure alert
+    needs: [check, build, pull-request, major-notice]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Report this run's outcome as an issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RESULTS: ${{ toJSON(needs) }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          title="Base image updates failing"
+          failed=$(jq -r 'to_entries[] | select(.value.result == "failure") | .key' <<<"$RESULTS")
+          number=$(gh issue list --state open --search "in:title \"$title\"" \
+            --json number,title --jq "map(select(.title == \"$title\")) | .[0].number // empty")
+          if [ -z "$failed" ]; then
+            if [ -n "$number" ]; then
+              gh issue close "$number" --comment "Passing again: $RUN_URL"
+            fi
+            exit 0
+          fi
+          guide="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/main/README.md#when-you-get-a-failure-report"
+          body=$(printf 'The base image update workflow failed in [this run](%s).\n\nFailed jobs: %s\n\nNothing was deployed; users keep the current images. **What to do:** see [When you get a failure report](%s) in the README.\n\nThis issue closes itself on the next successful run.' \
+            "$RUN_URL" "$(paste -sd, <<<"$failed" | sed 's/,/, /g')" "$guide")
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body "$body"
+          else
+            url=$(gh issue create --title "$title" --body "$body")
+            number="${url##*/}"
+          fi
+          # Non-fatal per person, so one unassignable account can't stop the
+          # alert itself; re-adding an existing assignee is a no-op.
+          for owner in ${OWNERS//,/ }; do
+            gh issue edit "$number" --add-assignee "$owner" \
+              || echo "::warning::could not assign $owner"
+          done

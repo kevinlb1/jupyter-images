@@ -109,6 +109,24 @@ jobs:
           cat "$output_file"
           cat "$output_file" >> "$GITHUB_OUTPUT"
 
+  # Offline tests for the CI helpers (ci/test_*.py); no Docker or network.
+  ci-unit-tests:
+    name: CI helper unit tests
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout pull-request merge
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Run ci/ unit tests
+        run: python3 -m unittest discover -v ci
+
   build-pr-ordinary:
     name: Build pull-request image ${{ matrix.image }} (no push)
     needs: select-pr-images
@@ -128,6 +146,15 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+
+      # Same cleanup as build.yml: the hub-6.1.1 notebook bases don't fit in
+      # a stock runner's free disk.
+      - name: Free runner disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          docker image prune -af
+          df -h /
 
       - name: Set up isolated Docker Buildx builder
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3

@@ -1,6 +1,9 @@
 # Soci 428 — RStudio Server image for JupyterHub (Z2JH)
-# Base: rocker/tidyverse pins R version + tidyverse + RStudio Server
-FROM rocker/tidyverse:4.6.1
+# Base: rocker/tidyverse pins R version + tidyverse + RStudio Server.
+# Pinned by digest; .github/workflows/base-image-updates.yml proposes newer
+# 4.x.y tags and refreshed digests.
+ARG BASE_CONTAINER=rocker/tidyverse:4.6.1@sha256:fd34ce1475d4379d7ac715b11decf08854d8f3b205d8fc4e6c48041408e00fc1
+FROM $BASE_CONTAINER
 
 # ---- System dependencies for JupyterHub integration ----
 # We need Python + pip to install jupyterhub-singleuser and jupyter-rsession-proxy,
@@ -17,15 +20,20 @@ RUN apt-get update && apt-get upgrade -y --with-new-pkgs && apt-get install -y -
 # ---- JupyterHub plumbing ----
 # jupyterhub-singleuser is what Z2JH's KubeSpawner actually launches.
 # jupyter-rsession-proxy is the extension that proxies RStudio through it.
-# Pinning versions to match the Hub (5.5.0) keeps the image reproducible across rebuilds.
-# Using --break-system-packages because Debian 12 marks /usr as externally managed;
-# acceptable here since the container is single-purpose.
-RUN pip3 install --break-system-packages --no-cache-dir \
-        jupyterhub==5.5.0 \
-        jupyter-server==2.19.0 \
-        jupyter-rsession-proxy==2.4.0 \
-        nbgitpuller==1.3.0 \
-        notebook==7.5.7
+# jupyterhub's version is set once for every image in JUPYTERHUB_PINS.env
+# (repo root); the direct deps are pinned in r-studio/requirements.txt and
+# their full closure in r-studio/constraints.txt (ci/regen-constraints.sh
+# r-studio), so rebuilds are reproducible.
+# Using --break-system-packages because Ubuntu marks the system Python as
+# externally managed (PEP 668); acceptable here since the container is
+# single-purpose.
+COPY JUPYTERHUB_PINS.env /tmp/jupyterhub-pins.env
+COPY r-studio/requirements.txt /tmp/requirements.txt
+COPY r-studio/constraints.txt /tmp/constraints.txt
+RUN . /tmp/jupyterhub-pins.env && \
+    : "${JUPYTERHUB_VERSION:?missing in JUPYTERHUB_PINS.env}" && \
+    PIP_CONSTRAINT=/tmp/constraints.txt pip3 install --break-system-packages --no-cache-dir \
+        -r /tmp/requirements.txt "jupyterhub==${JUPYTERHUB_VERSION}"
 
 # ---- Enable GitHub Copilot in RStudio Server ----
 # This is the admin-side toggle. Each student still authenticates their own
@@ -33,9 +41,17 @@ RUN pip3 install --break-system-packages --no-cache-dir \
 RUN echo "copilot-enabled=1" >> /etc/rstudio/rsession.conf
 
 # ---- Course-specific R packages ----
-# Rocker is wired to Posit Package Manager, so these are fast binary installs.
+# Binary installs from a dated Posit Package Manager snapshot, so a rebuild
+# gets the same package versions; bump CRAN_SNAPSHOT (any date Posit has a
+# snapshot for) to move them. The Ubuntu codename comes from the base image,
+# so the binaries always match its system libraries.
+# install.packages() only warns on failure; the check after it fails the
+# build if any package didn't install.
 # Add/remove packages as the syllabus evolves; rebuilding the image is cheap.
-RUN R -e "install.packages(c( \
+ARG CRAN_SNAPSHOT=2026-10-23
+RUN . /etc/os-release && \
+    CRAN_REPO="https://p3m.dev/cran/__linux__/${VERSION_CODENAME}/${CRAN_SNAPSHOT}" \
+    R -q -e "pkgs <- c( \
         'haven', \
         'survey', \
         'srvyr', \
@@ -54,7 +70,10 @@ RUN R -e "install.packages(c( \
         'janitor', \
         'skimr', \
         'corrr' \
-    ), repos = 'https://packagemanager.posit.co/cran/__linux__/jammy/latest')"
+    ); \
+    install.packages(pkgs, repos = Sys.getenv('CRAN_REPO')); \
+    missing <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]; \
+    if (length(missing)) stop('failed to install: ', paste(missing, collapse = ', '))"
 
 # ---- Shared course datasets (optional pattern) ----
 # Bake common datasets into the image so every student has them at /srv/data.

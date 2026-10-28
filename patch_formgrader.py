@@ -1,26 +1,52 @@
 #!/usr/bin/env python3
+# Run by install-common.sh --with-nbgrader, after nbgrader and
+# ngshare_exchange are installed. Every patch must either apply or already
+# be applied: a target that no longer matches (e.g. after an nbgrader
+# version bump) fails the build instead of shipping an unpatched image.
+import glob
+import importlib.util
+import os
 import sys
 
-PYTHON_VERSION = f"{sys.version_info.major}.{sys.version_info.minor}"
-TEMPLATE_DIR = f"/opt/conda/lib/python{PYTHON_VERSION}/site-packages/nbgrader/server_extensions/formgrader/templates/"
-APIHANDLERS = f"/opt/conda/lib/python{PYTHON_VERSION}/site-packages/nbgrader/server_extensions/formgrader/apihandlers.py"
-JS_DIR = f"/opt/conda/lib/python{PYTHON_VERSION}/site-packages/nbgrader/server_extensions/formgrader/static/js/"
-EXCHANGE = f"/opt/conda/lib/python{PYTHON_VERSION}/site-packages/ngshare_exchange/exchange.py"
 
-def patch_file(path, old, new, label):
+def package_dir(name):
+    # find_spec locates without importing: ngshare_exchange reads $USER at
+    # import time, which isn't set during a docker build.
+    spec = importlib.util.find_spec(name)
+    if spec is None or spec.origin is None:
+        sys.exit(f"patch_formgrader.py: {name} is not installed")
+    return os.path.dirname(spec.origin)
+
+
+NBGRADER_DIR = package_dir("nbgrader")
+FORMGRADER_DIR = os.path.join(NBGRADER_DIR, "server_extensions", "formgrader")
+TEMPLATE_DIR = os.path.join(FORMGRADER_DIR, "templates") + "/"
+APIHANDLERS = os.path.join(FORMGRADER_DIR, "apihandlers.py")
+JS_DIR = os.path.join(FORMGRADER_DIR, "static", "js") + "/"
+EXCHANGE = os.path.join(package_dir("ngshare_exchange"), "exchange.py")
+
+failures = []
+
+
+def patch_file(path, old, new, label, allow_multiple=False):
     try:
         with open(path) as f:
             content = f.read()
-        if old not in content:
-            print(f"[SKIP] {label}: string not found (already patched or version mismatch)")
-            return
-        with open(path, "w") as f:
-            f.write(content.replace(old, new))
-        print(f"[OK]   {label}: patched successfully")
-    except FileNotFoundError:
-        print(f"[WARN] {label}: file not found at {path}")
-    except Exception as e:
-        print(f"[ERROR] {label}: {e}")
+    except OSError as e:
+        print(f"[FAIL] {label}: {e}")
+        failures.append(label)
+        return
+    if new in content:
+        print(f"[SKIP] {label}: already patched")
+        return
+    found = content.count(old)
+    if found == 0 or (found > 1 and not allow_multiple):
+        print(f"[FAIL] {label}: expected string found {found} times in {path}")
+        failures.append(label)
+        return
+    with open(path, "w") as f:
+        f.write(content.replace(old, new))
+    print(f"[OK]   {label}: patched successfully")
 
 
 # 1. Remove Edit Student column header from manage_students.tpl
@@ -47,13 +73,14 @@ patch_file(
 # 3. Block PUT /api/student in apihandlers.py
 patch_file(
     path=APIHANDLERS,
-    old="""    @web.authenticated
-    def put(self, student_id):
+    old="""    def put(self, student_id):
+        data = self.get_json_body()
         student = {""",
-    new="""    @web.authenticated
-    def put(self, student_id):
+    new="""    def put(self, student_id):
         raise web.HTTPError(403, reason="Use ngshare-course-management CLI instead.")
+
     def put_DISABLED(self, student_id):
+        data = self.get_json_body()
         student = {""",
     label="apihandlers.py: block PUT /api/student"
 )
@@ -143,20 +170,32 @@ patch_file(
 #    architecture (it probes for a per-course JupyterHub service that we
 #    don't register - see confluence doc), so instead of hiding it we just
 #    make the empty state read as expected behavior, not an error.
-#    NOTE: the filename below is a webpack content hash that WILL change on
-#    nbgrader version bumps - if it does, patch_file() just prints [WARN]
-#    file not found and continues (same graceful-skip behavior as the rest
-#    of this script), so a version bump silently stops rewording rather than
-#    breaking the build. Re-run the grep from our debugging session to find
-#    the new hash if that happens.
-COURSE_LIST_JS_PATHS = [
-    "/opt/conda/share/jupyter/labextensions/@jupyter/nbgrader/static/603.9417528a77c0241e8e81.js",
-    f"/opt/conda/lib/python{PYTHON_VERSION}/site-packages/nbgrader/labextension/static/603.9417528a77c0241e8e81.js",
-]
+#    The message lives in a webpack chunk whose filename is a content hash
+#    that changes on nbgrader version bumps, so locate it by content in both
+#    copies of the labextension (installed and package data).
+COURSE_LIST_OLD = 'There are no available formgrader services.'
+COURSE_LIST_NEW = 'Course List is not used here - use Assignment List instead.'
+COURSE_LIST_JS_PATHS = []
+for _static in (
+    os.path.join(sys.prefix, "share", "jupyter", "labextensions", "@jupyter", "nbgrader", "static"),
+    os.path.join(NBGRADER_DIR, "labextension", "static"),
+):
+    for _path in sorted(glob.glob(os.path.join(_static, "*.js"))):
+        with open(_path) as f:
+            _content = f.read()
+        if COURSE_LIST_OLD in _content or COURSE_LIST_NEW in _content:
+            COURSE_LIST_JS_PATHS.append(_path)
+if not COURSE_LIST_JS_PATHS:
+    print("[FAIL] course_list JS: no labextension chunk contains the empty-state message")
+    failures.append("course_list JS")
 for _path in COURSE_LIST_JS_PATHS:
     patch_file(
         path=_path,
-        old='There are no available formgrader services.',
-        new='Course List is not used here - use Assignment List instead.',
-        label=f"course_list JS ({_path}): reword empty-state message"
+        old=COURSE_LIST_OLD,
+        new=COURSE_LIST_NEW,
+        label=f"course_list JS ({_path}): reword empty-state message",
+        allow_multiple=True,
     )
+
+if failures:
+    sys.exit(f"patch_formgrader.py: {len(failures)} patch(es) failed: {', '.join(failures)}")

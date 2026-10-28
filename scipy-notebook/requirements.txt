@@ -1,6 +1,6 @@
 altair
-pdfkit
-PyPDF2
+pypdf
 uncertainties
 vegafusion[embed]
 vl-convert-python
+weasyprint
