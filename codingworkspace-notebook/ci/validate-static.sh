@@ -226,7 +226,7 @@ expected = {
     # dependency; see the comment in proxy-requirements.txt. Remove together.
     "pyjwt": "2.15.1",
     "urllib3": "2.8.0",
-    "tornado": "6.5.10",
+    "tornado": "6.6",
     "oauthlib": "4.0.0",
     "notebook": "7.6.3",
     "jupyterlab": "4.6.4",
