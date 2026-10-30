@@ -46,7 +46,7 @@ docker network create "$network" >/dev/null
 docker run -d --name "$hub" --network "$network" \
   -p "127.0.0.1:$HUB_COMPAT_PORT:8000" \
   -e TESTER_TOKEN -e HUB_COMPAT_NETWORK="$network" -e HUB_COMPAT_HUB_NAME="$hub" \
-  -e DOCKERSPAWNER_VERSION \
+  -e DOCKERSPAWNER_VERSION="$DOCKERSPAWNER_VERSION" \
   -e HUB_COMPAT_IMAGE="$IMAGE_REF" \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v "$ROOT/ci/hub-compat/jupyterhub_config.py:/srv/jupyterhub/jupyterhub_config.py:ro" \
