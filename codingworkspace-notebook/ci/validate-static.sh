@@ -45,7 +45,7 @@ printf 'Validated full source pins: CW=%s GizmoApp=%s\n' "$CW_REF" "$GIZMOAPP_RE
 # release head and then dispatches build.yml, so its value cannot be asserted
 # here. read_pin.py already rejects anything but one full lowercase SHA, and
 # build-pr.yml separately refuses a pull request that changes the pin.
-test "$GIZMOAPP_REF" = f685cbad1a251df42ed3d8838e7200a1c355a479 \
+test "$GIZMOAPP_REF" = 745298f7dcd80bee95dea860b514146a62346ff2 \
   || fail "the wheelhouse image must use the reviewed versioned-dependency installer GizmoApp commit"
 . codingworkspace-notebook/DEPENDENCY_LAYER.env
 test "$DEPENDENCY_WHEELHOUSE_LAYER_VERSION" = v1 \
