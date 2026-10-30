@@ -211,9 +211,46 @@ def write_github_output(path: Path, values: dict[str, str]) -> None:
             handle.write(f"{key}={value}\n")
 
 
+def fetch_release_pages(fetch_page, *, maximum_pages: int = 100) -> list[dict]:
+    """Read the complete history or fail visibly, never select a partial page."""
+    releases = []
+    seen = set()
+    total_bytes = 0
+    for page in range(1, maximum_pages + 1):
+        batch = fetch_page(page)
+        if not isinstance(batch, list) or len(batch) > 100:
+            raise ValueError("invalid release page")
+        total_bytes += len(json.dumps(batch))
+        if total_bytes > 64_000_000:
+            raise ValueError("release history exceeds response bound; refusing incomplete selection")
+        for release in batch:
+            if not isinstance(release, dict) or type(release.get("id")) is not int:
+                raise ValueError("invalid release identity")
+            if release["id"] in seen:
+                raise ValueError("release pagination changed while reading; retry the complete lookup")
+            seen.add(release["id"])
+        releases.extend(batch)
+        if len(batch) < 100:
+            return releases
+    raise ValueError("release history exceeds pagination bound; refusing incomplete selection")
+
+
+def github_release_page(page: int):
+    result = subprocess.run(["gh", "api", "--hostname", "github.com",
+        f"repos/anomalyco/opencode/releases?per_page=100&page={page}"],
+        capture_output=True, text=True, timeout=60)
+    if result.returncode:
+        raise ValueError("GitHub release lookup failed; no partial selection will be used")
+    if len(result.stdout) > 16_000_000:
+        raise ValueError("release page exceeds response bound")
+    return json.loads(result.stdout)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", required=True)
+    fetch = subparsers.add_parser("fetch")
+    fetch.add_argument("output", type=Path)
     select = subparsers.add_parser("select")
     select.add_argument("release_json", type=Path)
     select.add_argument("pins", type=Path)
@@ -226,6 +263,11 @@ def main() -> int:
     verify.add_argument("--amd64", type=Path, required=True)
     verify.add_argument("--arm64", type=Path, required=True)
     arguments = parser.parse_args()
+
+    if arguments.command == "fetch":
+        releases = fetch_release_pages(github_release_page)
+        arguments.output.write_text(json.dumps(releases), encoding="utf-8")
+        return 0
 
     releases = json.loads(arguments.release_json.read_text(encoding="utf-8"))
     if not isinstance(releases, list):
@@ -245,6 +287,7 @@ def main() -> int:
         output = {"update": "false"}
         if selected:
             output = {"update": "true", **selected}
+        output["selection_complete"] = "true"
         output["held_major_version"] = held_major["version"] if held_major else ""
         write_github_output(arguments.github_output, output)
         return 0

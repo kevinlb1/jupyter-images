@@ -15,6 +15,9 @@ jobs:
   propose:
     if: github.repository == 'ubc/jupyter-images' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    outputs:
+      held_major_version: ${{ steps.release.outputs.held_major_version }}
+      selection_complete: ${{ steps.release.outputs.selection_complete }}
     permissions:
       contents: write
       pull-requests: write
@@ -31,13 +34,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --location \
-            --proto '=https' --tlsv1.2 \
-            -H 'Accept: application/vnd.github+json' \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H 'X-GitHub-Api-Version: 2022-11-28' \
-            'https://api.github.com/repos/anomalyco/opencode/releases?per_page=100' \
-            --output "$RUNNER_TEMP/opencode-releases.json"
+          python3 codingworkspace-notebook/ci/update_opencode_release.py fetch \
+            "$RUNNER_TEMP/opencode-releases.json"
 
       - name: Select the newest soaked release in the supported major
         id: release
@@ -200,3 +198,22 @@ jobs:
             echo "Rejected OpenCode ${VERSION} pins were rolled back." >&2
             exit 1
           fi
+
+  major-notice:
+    name: Maintain the OpenCode major-upgrade notice
+    needs: propose
+    if: always() && needs.propose.outputs.selection_complete == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Create, update or close the persistent notice
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HELD_MAJOR_VERSION: ${{ needs.propose.outputs.held_major_version }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: python3 codingworkspace-notebook/ci/opencode_major_notice.py

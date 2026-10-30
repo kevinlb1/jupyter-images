@@ -504,7 +504,7 @@ for required in (
     "contents: write",
     "pull-requests: write",
     "actions: write",
-    "https://api.github.com/repos/anomalyco/opencode/releases?per_page=100",
+    "update_opencode_release.py fetch",
     "--minimum-age-hours 48",
     "update_opencode_release.py verify",
     "validate-static.sh",
@@ -526,6 +526,20 @@ for required in (
 ):
     if required not in update_job:
         raise SystemExit(f"OpenCode update automation is missing {required}")
+release_fetcher = (ROOT / "codingworkspace-notebook/ci/update_opencode_release.py").read_text(encoding="utf-8")
+for required in ('"--hostname", "github.com"',
+                 'repos/anomalyco/opencode/releases?per_page=100&page={page}',
+                 'maximum_pages: int = 100', 'refusing incomplete selection'):
+    if required not in release_fetcher:
+        raise SystemExit(f"OpenCode release history lookup is missing {required}")
+notice_job = job(UPDATE_OPENCODE, "major-notice")
+for required in ("needs: propose", "always() && needs.propose.outputs.selection_complete == 'true'",
+                 "contents: read", "issues: write", "persist-credentials: false", "opencode_major_notice.py"):
+    if required not in notice_job:
+        raise SystemExit(f"OpenCode major notice is missing {required}")
+if "issues: write" in update_job or any(permission in notice_job for permission in
+        ("contents: write", "pull-requests: write", "actions: write", "id-token: write", "packages: write")):
+    raise SystemExit("OpenCode notice permissions are not isolated to its notification job")
 if not re.search(r"(?m)^permissions: \{\}\s*$", UPDATE_OPENCODE):
     raise SystemExit("OpenCode update workflow has broad top-level permissions")
 
