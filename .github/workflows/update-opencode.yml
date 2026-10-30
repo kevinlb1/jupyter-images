@@ -39,7 +39,7 @@ jobs:
             'https://api.github.com/repos/anomalyco/opencode/releases?per_page=100' \
             --output "$RUNNER_TEMP/opencode-releases.json"
 
-      - name: Select the newest soaked release
+      - name: Select the newest soaked release in the supported major
         id: release
         run: |
           set -euo pipefail
@@ -50,6 +50,13 @@ jobs:
             --minimum-age-hours 48 \
             --github-output "$output"
           cat "$output" >> "$GITHUB_OUTPUT"
+
+      - name: Report separately reviewed major upgrades
+        if: steps.release.outputs.held_major_version != ''
+        env:
+          HELD_MAJOR_VERSION: ${{ steps.release.outputs.held_major_version }}
+        run: |
+          printf 'OpenCode %s is held for a separate CLI migration review. Automatic updates stay on the pinned major, with the existing 48-hour soak and CLI checks.\n' "$HELD_MAJOR_VERSION" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Download published architecture archives
         if: steps.release.outputs.update == 'true'

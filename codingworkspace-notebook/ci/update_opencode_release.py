@@ -90,7 +90,9 @@ def select_release(
     *,
     minimum_age_hours: int,
     now: datetime,
+    newer_major: bool = False,
 ) -> dict[str, str] | None:
+    current_version = version_tuple(current)
     cutoff = now.astimezone(UTC) - timedelta(hours=minimum_age_hours)
     candidates = []
     for item in releases:
@@ -101,7 +103,10 @@ def select_release(
         except (TypeError, ValueError):
             continue
         if metadata and parse_timestamp(metadata["published_at"]) <= cutoff:
-            candidates.append(metadata)
+            major = version_tuple(metadata["version"])[0]
+            matches_major = major > current_version[0] if newer_major else major == current_version[0]
+            if matches_major:
+                candidates.append(metadata)
     if not candidates:
         return None
     selected = max(candidates, key=lambda item: version_tuple(item["version"]))
@@ -233,12 +238,19 @@ def main() -> int:
             minimum_age_hours=arguments.minimum_age_hours,
             now=datetime.now(UTC),
         )
+        held_major = select_release(
+            releases, current, minimum_age_hours=arguments.minimum_age_hours,
+            now=datetime.now(UTC), newer_major=True,
+        )
         output = {"update": "false"}
         if selected:
             output = {"update": "true", **selected}
+        output["held_major_version"] = held_major["version"] if held_major else ""
         write_github_output(arguments.github_output, output)
         return 0
 
+    if version_tuple(arguments.version)[0] != version_tuple(current)[0]:
+        raise SystemExit("major OpenCode upgrades require a separately reviewed CLI migration")
     matching = []
     for release in releases:
         if isinstance(release, dict):

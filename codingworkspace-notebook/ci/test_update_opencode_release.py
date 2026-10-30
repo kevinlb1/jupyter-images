@@ -4,6 +4,9 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import io
+import json
+import subprocess
+import sys
 import tarfile
 import tempfile
 import unittest
@@ -53,6 +56,39 @@ class OpenCodeReleaseUpdateTests(unittest.TestCase):
             now=datetime(2026, 8, 30, tzinfo=UTC),
         )
         self.assertEqual(selected["version"], "1.18.24")
+
+    def test_major_release_does_not_starve_supported_updates(self) -> None:
+        releases = [release("2.2.0", "2026-10-27T09:04:00Z"),
+                    release("1.19.5", "2026-10-28T06:17:00Z")]
+        options = dict(minimum_age_hours=48, now=datetime(2026, 10, 30, 12, tzinfo=UTC))
+        self.assertEqual(release_update.select_release(releases, "1.18.32", **options)["version"], "1.19.5")
+        self.assertEqual(release_update.select_release(releases, "1.18.32", newer_major=True, **options)["version"], "2.2.0")
+        self.assertIsNone(release_update.select_release(releases, "1.19.5", **options))
+        self.assertIsNone(release_update.select_release(releases[:1], "1.18.32", **options))
+        self.assertEqual(release_update.select_release(releases, "2.1.0", **options)["version"], "2.2.0")
+        self.assertIsNone(release_update.select_release(releases, "2.2.0", newer_major=True, **options))
+
+    def test_supported_major_retains_soak_and_metadata_checks(self) -> None:
+        releases = [release("2.2.0", "2026-10-27T09:04:00Z"),
+                    release("1.19.5", "2026-10-30T06:17:00Z")]
+        options = dict(minimum_age_hours=48, now=datetime(2026, 10, 30, 12, tzinfo=UTC))
+        self.assertIsNone(release_update.select_release(releases, "1.18.32", **options))
+        releases.append(release("1.19.4", "2026-10-27T00:00:00Z"))
+        releases[-1]["assets"][0]["digest"] = None
+        self.assertIsNone(release_update.select_release(releases, "1.18.32", **options))
+
+    def test_direct_verification_refuses_major_before_executing_binary(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "pins").write_text("OPENCODE_VERSION=1.18.32\n")
+            (root / "releases.json").write_text(json.dumps([release("2.2.0", "2026-10-27T09:04:00Z")]))
+            result = subprocess.run([sys.executable, str(MODULE_PATH), "verify",
+                str(root / "releases.json"), str(root / "pins"), "--version", "2.2.0",
+                "--amd64", str(root / "missing-amd64"), "--arm64", str(root / "missing-arm64")],
+                capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("separately reviewed CLI migration", result.stderr)
+            self.assertEqual((root / "pins").read_text(), "OPENCODE_VERSION=1.18.32\n")
 
     def test_rejects_missing_published_digest_or_unexpected_download_host(self) -> None:
         candidate = release("1.18.24", "2026-08-20T00:00:00Z")
