@@ -65,7 +65,8 @@ contract() {
       command -v codingworkspace >/dev/null
       pinned_opencode=$(sed -n 's/^OPENCODE_VERSION=//p' /etc/codingworkspace-runtime-pins.env)
       test -n "$pinned_opencode"
-      test "$(opencode --version)" = "$pinned_opencode"
+      opencode_reported="$(opencode --version)"
+      test "${opencode_reported#opencode v}" = "$pinned_opencode"
       python - <<"PY"
 import importlib.machinery
 import importlib.metadata as md

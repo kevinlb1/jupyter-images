@@ -172,6 +172,8 @@ cw_env = {
     "CODINGWORKSPACE_OPENCODE_COMMAND": "/usr/local/bin/opencode",
     "CODINGWORKSPACE_ISOLATION_OPENCODE_COMMAND": "/usr/local/bin/opencode",
     "CODINGWORKSPACE_OPENCODE_RUNTIME_VERSION": opencode_runtime_version,
+    # V2 is supported only through the protected, per-workspace service.
+    "CODINGWORKSPACE_OPENCODE_PERSISTENT_ENABLED": "1" if opencode_runtime_version == "2.2.2" else "0",
     "CODINGWORKSPACE_LOCAL_AGENT_MODEL_PROXY_ENABLED": "1",
     # Remote code execution and unfinished multi-pod features are forbidden.
     "CODINGWORKSPACE_REMOTE_WORKERS_ENABLED": "0",

@@ -101,7 +101,7 @@ RUN set -eux; \
     tar --extract --gzip --file "${opencode_archive}" --directory /tmp/opencode-dist --no-same-owner opencode; \
     install --owner=root --group=root --mode=0755 /tmp/opencode-dist/opencode /usr/local/bin/opencode; \
     test "$(node --version)" = "v${NODE_VERSION}"; \
-    test "$(opencode --version)" = "${OPENCODE_VERSION}"; \
+    opencode_reported="$(opencode --version)"; test "${opencode_reported#opencode v}" = "${OPENCODE_VERSION}"; \
     test "$(bwrap --version)" = "bubblewrap ${BUBBLEWRAP_VERSION}"; \
     /opt/conda/bin/python /tmp/install_security_assets.py --lock /tmp/codingworkspace-npm-security-lock.json --npm-only; \
     test "$(npm --version)" = "11.21.0"; \
