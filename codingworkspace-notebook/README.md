@@ -515,9 +515,11 @@ no scanner exception is used for the revoked certificate authorities
 
 The 2.2.2 pin requires CodingWorkspace's protected V2 service adapter (introduced
 in `b278c3eb5fb52408aee0143e455727725ffebe7e`). Keep this image change in draft
-until that implementation passes the exact-image preflight and the matching CW
-release is selected. The automation-owned CW_REF is deliberately unchanged;
-merging this recipe with an older CW release would produce an incompatible image.
+until that implementation passes the exact-image preflight. After review,
+coordinate recipe merge with selection of the matching CW release, following
+CW RELEASING.md. The automation-owned CW_REF is deliberately unchanged; an
+intermediate image built from an older CW release is incompatible and must not
+be accepted or promoted.
 
 V2 always selects the per-workspace protected service. It does not use shared
 CLI service discovery. Runtime data stays on the student's PVC, V1 conversation
