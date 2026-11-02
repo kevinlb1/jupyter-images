@@ -93,6 +93,10 @@ def select_release(
     newer_major: bool = False,
 ) -> dict[str, str] | None:
     current_version = version_tuple(current)
+    # The protected V2 adapter admits an exact tested version. New V2 releases
+    # need platform/API validation, not the legacy auth/CLI-only update gate.
+    if current_version[0] >= 2 and not newer_major:
+        return None
     cutoff = now.astimezone(UTC) - timedelta(hours=minimum_age_hours)
     candidates = []
     for item in releases:

@@ -510,3 +510,23 @@ The October 20, 2026 security refresh pins aiohttp 3.14.4 and certifi
 The wheel RECORD, vendor manifest, and SBOM identify the replaced bytes;
 no scanner exception is used for the revoked certificate authorities
 (GHSA-6q48-6c7w-9gw2). Image smoke checks verify both certifi copies.
+
+## OpenCode 2 migration candidate
+
+The 2.2.2 pin requires CodingWorkspace's protected V2 service adapter (introduced
+in `b278c3eb5fb52408aee0143e455727725ffebe7e`). Exact-image preflight passed at
+CW `03ffcc5fb52e1a6e60d66a894029446faf85e4c1` (run `41336987182`).
+Coordinate recipe merge with selection of the matching CW release, following
+CW RELEASING.md. The automation-owned CW_REF is deliberately unchanged; an
+intermediate image built from an older CW release is incompatible and must not
+be accepted or promoted.
+
+V2 always selects the per-workspace protected service. It does not use shared
+CLI service discovery. Runtime data stays on the student's PVC, V1 conversation
+migration preserves the old version's rollback copy, and the platform rejects
+stored personal credentials. The normal full isolation and retained-state image
+gates still apply. Preview acceptance and production rollout are separate.
+
+Automatic V2 pin updates are held: the platform adapter admits an exact tested
+version, so the legacy CLI/auth-only updater cannot establish API compatibility.
+Future upgrades need matching platform tests and a separately reviewed pin.

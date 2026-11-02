@@ -148,6 +148,12 @@ jobs:
               git config --global user.email "fixture@example.invalid"
               /opt/codingworkspace-installed-dependencies/venv/bin/python -m unittest discover -s tests -v
             ' 2>&1 | tee "$RUNNER_TEMP/regression-evidence/starter-suite.log"
+      - name: Verify installed V2 tools, isolation and prior-engine migration
+        run: |
+          set -euo pipefail
+          bash codingworkspace-notebook/ci/verify-published-opencode.sh \
+            "$TEST_IMAGE" "$PRIOR_IMAGE" "$RUNNER_TEMP/regression-source" \
+            2>&1 | tee "$RUNNER_TEMP/regression-evidence/persistent-runtime.log"
       - name: Exercise actual prior-image upgrade and lifecycle
         if: ${{ !cancelled() && env.TEST_IMAGE != '' }}
         run: |

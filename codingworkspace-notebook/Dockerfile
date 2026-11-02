@@ -101,7 +101,10 @@ RUN set -eux; \
     tar --extract --gzip --file "${opencode_archive}" --directory /tmp/opencode-dist --no-same-owner opencode; \
     install --owner=root --group=root --mode=0755 /tmp/opencode-dist/opencode /usr/local/bin/opencode; \
     test "$(node --version)" = "v${NODE_VERSION}"; \
-    test "$(opencode --version)" = "${OPENCODE_VERSION}"; \
+    opencode_probe=$(mktemp -d); \
+    opencode_reported="$(HOME="$opencode_probe" XDG_DATA_HOME="$opencode_probe/data" XDG_CONFIG_HOME="$opencode_probe/config" XDG_CACHE_HOME="$opencode_probe/cache" XDG_STATE_HOME="$opencode_probe/state" NO_COLOR=1 OPENCODE_DISABLE_MODELS_FETCH=1 OPENCODE_DISABLE_AUTOUPDATE=1 opencode --version)"; \
+    test "${opencode_reported#opencode v}" = "${OPENCODE_VERSION}"; \
+    rm -rf "$opencode_probe"; \
     test "$(bwrap --version)" = "bubblewrap ${BUBBLEWRAP_VERSION}"; \
     /opt/conda/bin/python /tmp/install_security_assets.py --lock /tmp/codingworkspace-npm-security-lock.json --npm-only; \
     test "$(npm --version)" = "11.21.0"; \

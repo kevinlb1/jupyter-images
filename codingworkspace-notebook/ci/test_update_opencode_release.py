@@ -65,7 +65,7 @@ class OpenCodeReleaseUpdateTests(unittest.TestCase):
         self.assertEqual(release_update.select_release(releases, "1.18.32", newer_major=True, **options)["version"], "2.2.0")
         self.assertIsNone(release_update.select_release(releases, "1.19.5", **options))
         self.assertIsNone(release_update.select_release(releases[:1], "1.18.32", **options))
-        self.assertEqual(release_update.select_release(releases, "2.1.0", **options)["version"], "2.2.0")
+        self.assertIsNone(release_update.select_release(releases, "2.1.0", **options))
         self.assertIsNone(release_update.select_release(releases, "2.2.0", newer_major=True, **options))
 
     def test_supported_major_retains_soak_and_metadata_checks(self) -> None:

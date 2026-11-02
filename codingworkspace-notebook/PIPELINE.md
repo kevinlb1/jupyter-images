@@ -724,3 +724,12 @@ At least before each course release and monthly while deployed:
 5. verify a previous immutable digest can be restored; and
 6. retain the checksummed release evidence in the independently backed-up,
    indefinite course operations record.
+
+## V2 candidate update hold
+
+When the reviewed pin selects OpenCode 2, the updater does not select a newer
+same-major release automatically. CW currently validates the exact 2.2.2 service
+API and owns its process/configuration lifecycle. Resume automatic updates only
+after an API-aware compatibility gate and matching platform version policy are
+reviewed. The 48-hour soak, checksum verification and newer-major notices remain
+in force; this hold grants no deployment or promotion permission.

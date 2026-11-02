@@ -65,7 +65,12 @@ contract() {
       command -v codingworkspace >/dev/null
       pinned_opencode=$(sed -n 's/^OPENCODE_VERSION=//p' /etc/codingworkspace-runtime-pins.env)
       test -n "$pinned_opencode"
-      test "$(opencode --version)" = "$pinned_opencode"
+      # Version reporting must not bake root-owned V2 state into a student home.
+      test ! -e /home/jovyan/.local/share/opencode
+      opencode_probe=$(mktemp -d)
+      opencode_reported="$(HOME="$opencode_probe" XDG_DATA_HOME="$opencode_probe/data" XDG_CONFIG_HOME="$opencode_probe/config" XDG_CACHE_HOME="$opencode_probe/cache" XDG_STATE_HOME="$opencode_probe/state" NO_COLOR=1 OPENCODE_DISABLE_MODELS_FETCH=1 OPENCODE_DISABLE_AUTOUPDATE=1 opencode --version)"
+      rm -rf "$opencode_probe"
+      test "${opencode_reported#opencode v}" = "$pinned_opencode"
       python - <<"PY"
 import importlib.machinery
 import importlib.metadata as md
