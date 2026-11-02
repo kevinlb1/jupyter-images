@@ -2,8 +2,8 @@
 # Every allowed wheel digest comes from the corresponding official PyPI release.
 # Keep --no-deps, --only-binary=:all:, and --require-hashes in the Dockerfile.
 # Bounded pod-local PDF attachment extraction; no optional extras required.
-pypdf==6.21.2 \
-    --hash=sha256:1d44d1a3a200f25062adff0085b02040e4646431ac2ccac22e42679e91466084
+pypdf==6.21.4 \
+    --hash=sha256:33e4fb41ca352810eb4e9838aa0d82d6888a5f8bf682f43e99cce5faa666255c
 aiohappyeyeballs==2.7.1 \
     --hash=sha256:9243213661e29250eb41368e5daa826fc017156c3b8a11440826b2e3ed376472
 aiosignal==1.4.0 \

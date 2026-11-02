@@ -477,10 +477,10 @@ The unused nbclassic frontend and experimental rattler solver are removed;
 Notebook 7, JupyterLab and the normal Conda/libmamba solver remain. Image smoke
 checks still prove authenticated proxy operation and denied notebook surfaces.
 
-`npm-security-lock.json` fixes npm 11 and four bundled components plus Hub's
+`npm-security-lock.json` fixes npm 11 and eight bundled components plus Hub's
 Moment asset. `install_security_assets.py` verifies exact upstream tarball
 hashes and package identities, rejects links/traversal, and runs no install
-hooks. Same-major component replacements retain npm's supported Node runtime.
+hooks. The pinned Node runtime satisfies every replaced component's engine requirement.
 Full image scans are retained, including unfixed findings; both the existing
 fixable-CRITICAL gate and an all-available-fixes gate must pass before promotion.
 
@@ -510,6 +510,25 @@ The October 20, 2026 security refresh pins aiohttp 3.14.4 and certifi
 The wheel RECORD, vendor manifest, and SBOM identify the replaced bytes;
 no scanner exception is used for the revoked certificate authorities
 (GHSA-6q48-6c7w-9gw2). Image smoke checks verify both certifi copies.
+
+## November 2 dependency security refresh
+
+The first V2 candidate publication (run `41369282224`) was rejected by the
+all-available-fixes gate: npm's glob/minimatch and seven pypdf findings. It must
+not be accepted or promoted. This refresh pins pypdf 6.21.4 and replaces npm's
+bundled glob with 14.0.2 and minimatch with 11.0.1, including the required
+path-scurry 3.0.0 and @isaacs/nonrecursive-glob-match 1.0.1 dependencies.
+All archives/wheels remain digest-locked; npm stays at reviewed 11.21.0.
+
+The build checks the real dependency closure, synchronous/asynchronous matching
+and cancellation. The published-image gate additionally exercises workspace
+install, clean install and packaging, alongside its existing offline Python
+and npm registry/cache checks. Scoped-package extraction and lockfile metadata
+have regression coverage. Both security gates remain mandatory.
+
+Upstream references: [glob](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4),
+[minimatch](https://github.com/advisories/GHSA-g3hv-75wg-m249), and
+[pypdf 6.21.4](https://pypi.org/project/pypdf/6.21.4/).
 
 ## OpenCode 2 migration candidate
 

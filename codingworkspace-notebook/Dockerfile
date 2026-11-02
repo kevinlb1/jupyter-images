@@ -58,6 +58,7 @@ COPY codingworkspace-notebook/DEPENDENCY_LAYER.env /tmp/codingworkspace-dependen
 COPY codingworkspace-notebook/security-apt.txt /tmp/codingworkspace-security-apt.txt
 COPY codingworkspace-notebook/npm-security-lock.json /tmp/codingworkspace-npm-security-lock.json
 COPY codingworkspace-notebook/install_security_assets.py /tmp/install_security_assets.py
+COPY codingworkspace-notebook/ci/check_npm_security.cjs /tmp/check_npm_security.cjs
 COPY codingworkspace-notebook/patch_pip_wheel.py /tmp/patch_pip_wheel.py
 COPY codingworkspace-notebook/pip-security-lock.json /tmp/pip-security-lock.json
 RUN set -eux; \
@@ -107,6 +108,7 @@ RUN set -eux; \
     rm -rf "$opencode_probe"; \
     test "$(bwrap --version)" = "bubblewrap ${BUBBLEWRAP_VERSION}"; \
     /opt/conda/bin/python /tmp/install_security_assets.py --lock /tmp/codingworkspace-npm-security-lock.json --npm-only; \
+    node /tmp/check_npm_security.cjs; \
     test "$(npm --version)" = "11.21.0"; \
     apt-get clean; \
     rm -rf "${node_archive}" "${opencode_archive}" /tmp/opencode-dist /tmp/opencode \
@@ -277,7 +279,7 @@ RUN --mount=type=bind,from=cwsrc,target=/cwsrc \
     /opt/conda/bin/python /tmp/install_security_assets.py --lock /tmp/codingworkspace-npm-security-lock.json --jupyterhub-only; \
     pip check; \
     conda list --json > /tmp/codingworkspace-conda-inventory.json; \
-    python -c 'import importlib.metadata as m; assert m.version("jupyterhub") == "5.5.1"; assert m.version("jupyter-server-proxy") == "4.5.0"; assert m.version("aiohttp") == "3.14.4"; assert m.version("certifi") == "2026.10.19"; assert m.version("simpervisor") == "1.0.0"; assert m.version("notebook") == "7.6.3"; assert m.version("jupyterlab") == "4.6.4"; assert m.version("pyjwt") == "2.15.1"; assert m.version("pypdf") == "6.21.2"; assert m.version("brotli") == "1.2.1"; assert m.version("nbconvert") == "7.17.2"; assert m.version("filelock") == "4.2.1"; assert m.version("setuptools") == "84.1.0"; assert m.version("msgpack") == "1.2.3"'; \
+    python -c 'import importlib.metadata as m; assert m.version("jupyterhub") == "5.5.1"; assert m.version("jupyter-server-proxy") == "4.5.0"; assert m.version("aiohttp") == "3.14.4"; assert m.version("certifi") == "2026.10.19"; assert m.version("simpervisor") == "1.0.0"; assert m.version("notebook") == "7.6.3"; assert m.version("jupyterlab") == "4.6.4"; assert m.version("pyjwt") == "2.15.1"; assert m.version("pypdf") == "6.21.4"; assert m.version("brotli") == "1.2.1"; assert m.version("nbconvert") == "7.17.2"; assert m.version("filelock") == "4.2.1"; assert m.version("setuptools") == "84.1.0"; assert m.version("msgpack") == "1.2.3"'; \
     python -I /tmp/verify_installed_source.py installed \
         --source /tmp/cwbuild --package codingworkspace; \
     if [ -f /tmp/cwbuild/scripts/build_installed_dependencies.py ]; then \

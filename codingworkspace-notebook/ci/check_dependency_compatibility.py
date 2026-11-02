@@ -24,6 +24,7 @@ def run(*args, cwd=None, env=None):
 
 def main():
     assert os.getuid() != 0
+    run('node', str(Path(__file__).with_name('check_npm_security.cjs')))
     run(sys.executable, '-m', 'pip', 'check')
     conda = json.loads(run('/opt/conda/bin/conda', 'list', '--json'))
     assert any(p['name'] == 'conda' for p in conda)
@@ -98,7 +99,26 @@ def main():
                 server.shutdown()
                 thread.join(timeout=5)
         assert '/cw-compat-probe' in requests and '/probe.tgz' in requests
-    print('Dependency compatibility passed: base/baked/fresh pip, ensurepip, uninstall/reinstall, conda inventory, npm registry/cache install.')
+        # Exercise glob-backed workspace discovery as well as registry installs.
+        workspace = root / 'npm-workspaces'
+        child = workspace / 'packages/example'
+        child.mkdir(parents=True)
+        (workspace / 'package.json').write_text(json.dumps({
+            'name': 'cw-workspaces', 'version': '1.0.0', 'private': True,
+            'workspaces': ['packages/*']}))
+        (child / 'package.json').write_text(json.dumps({
+            'name': 'cw-workspace-child', 'version': '1.0.0', 'main': 'index.js'}))
+        (child / 'index.js').write_text('module.exports = "cw-workspace-ok";\n')
+        for operation in ('install', 'ci'):
+            run('npm', operation, '--offline', '--ignore-scripts', '--no-audit', '--no-fund',
+                cwd=workspace, env=env)
+            run('node', '-e', 'require("node:assert/strict").equal(require("cw-workspace-child"),"cw-workspace-ok")',
+                cwd=workspace, env=env)
+        packed = json.loads(run('npm', 'pack', '--workspaces', '--json', '--offline', '--ignore-scripts',
+                                cwd=workspace, env=env))
+        assert len(packed) == 1 and packed[0]['name'] == 'cw-workspace-child'
+        assert (workspace / packed[0]['filename']).is_file()
+    print('Dependency compatibility passed: base/baked/fresh pip, ensurepip, uninstall/reinstall, conda inventory, npm registry/cache and workspace install/ci/pack.')
 
 
 if __name__ == '__main__':

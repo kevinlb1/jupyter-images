@@ -42,13 +42,16 @@ def unpack(raw, entry, output):
 
 def install(entry, target):
     url = entry['url']
-    expected = f"https://registry.npmjs.org/{entry['name']}/-/{entry['name']}-{entry['version']}.tgz"
+    basename = entry['name'].rsplit('/', 1)[-1]
+    expected = f"https://registry.npmjs.org/{entry['name']}/-/{basename}-{entry['version']}.tgz"
     if url != expected or not re.fullmatch('[a-f0-9]{64}', entry['sha256']):
         raise ValueError('unreviewed download location or digest')
     with urllib.request.urlopen(url, timeout=90) as response:
         raw = response.read(30_000_001)
     if len(raw) > 30_000_000:
         raise ValueError('asset download exceeds limit')
+    # Scoped packages need their image-owned scope directory before staging.
+    target.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='cw-security-', dir=target.parent) as temp:
         staging = Path(temp) / 'package'
         staging.mkdir()
@@ -59,6 +62,25 @@ def install(entry, target):
             shutil.rmtree(target)
         staging.rename(target)
     print(f"Verified security asset {entry['name']}@{entry['version']} sha256:{entry['sha256']}")
+
+
+def update_npm_lockfiles(npm, entries):
+    """Keep dependency records aligned with the verified replacement packages."""
+    for path in (npm / 'npm-shrinkwrap.json', npm / 'package-lock.json'):
+        if not path.exists():
+            continue
+        data = json.loads(path.read_text())
+        for entry in entries:
+            if entry['name'] in ('npm', 'moment'):
+                continue
+            key = 'node_modules/' + entry['name']
+            package = json.loads((npm / key / 'package.json').read_text())
+            record = data.setdefault('packages', {}).setdefault(key, {'inBundle': True})
+            record.update(version=entry['version'], resolved=entry['url'], integrity=entry['integrity'])
+            record.pop('dependencies', None)
+            if package.get('dependencies'):
+                record['dependencies'] = package['dependencies']
+        path.write_text(json.dumps(data, indent=2) + '\n')
 
 
 def main():
@@ -73,7 +95,8 @@ def main():
         raise ValueError('unsupported asset manifest')
     npm = Path('/usr/local/lib/node_modules/npm')
     allowed = {'npm': npm, 'moment': Path('/opt/conda/share/jupyterhub/static/components/moment')}
-    for name in ('brace-expansion', 'ip-address', 'postcss-selector-parser', 'undici'):
+    for name in ('brace-expansion', 'ip-address', 'postcss-selector-parser', 'undici',
+                 'glob', 'minimatch', 'path-scurry', '@isaacs/nonrecursive-glob-match'):
         allowed[name] = npm / 'node_modules' / name
     entries = lock['packages']
     if len(entries) != len(allowed) or {e['name'] for e in entries} != set(allowed):
@@ -82,16 +105,7 @@ def main():
         if (entry['name'] == 'moment') == args.jupyterhub_only:
             install(entry, allowed[entry['name']])
     if args.npm_only:
-        # Keep the installed lock metadata consistent with actual bundled code.
-        for path in (npm / 'npm-shrinkwrap.json', npm / 'package-lock.json'):
-            if not path.exists():
-                continue
-            data = json.loads(path.read_text())
-            for entry in entries:
-                key = 'node_modules/' + entry['name']
-                if key in data.get('packages', {}):
-                    data['packages'][key].update(version=entry['version'], resolved=entry['url'], integrity=entry['integrity'])
-            path.write_text(json.dumps(data, indent=2) + '\n')
+        update_npm_lockfiles(npm, entries)
 
 
 if __name__ == '__main__':
