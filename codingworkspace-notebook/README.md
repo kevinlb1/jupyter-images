@@ -514,9 +514,9 @@ no scanner exception is used for the revoked certificate authorities
 ## OpenCode 2 migration candidate
 
 The 2.2.2 pin requires CodingWorkspace's protected V2 service adapter (introduced
-in `b278c3eb5fb52408aee0143e455727725ffebe7e`). Keep this image change in draft
-until that implementation passes the exact-image preflight. After review,
-coordinate recipe merge with selection of the matching CW release, following
+in `b278c3eb5fb52408aee0143e455727725ffebe7e`). Exact-image preflight passed at
+CW `03ffcc5fb52e1a6e60d66a894029446faf85e4c1` (run `41336987182`).
+Coordinate recipe merge with selection of the matching CW release, following
 CW RELEASING.md. The automation-owned CW_REF is deliberately unchanged; an
 intermediate image built from an older CW release is incompatible and must not
 be accepted or promoted.
